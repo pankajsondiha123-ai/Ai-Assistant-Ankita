@@ -1,0 +1,25 @@
+{
+  "name": "अंकिता AI — स्मार्ट पर्सनल असिस्टेंट",
+  "short_name": "अंकिता AI",
+  "description": "आपकी बुद्धिमान एआई और संपूर्ण मोबाइल असिस्टेंट (Ankita AI Assistant)",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#02050b",
+  "theme_color": "#02050b",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "utilities", "lifestyle"]
+}

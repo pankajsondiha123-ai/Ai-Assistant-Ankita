@@ -1,0 +1,10 @@
+{
+  "name": "J.A.R.V.I.S — Mark X AI Assistant",
+  "description": "Futuristic J.A.R.V.I.S Mark X Cybernetic AI Assistant with holographic Arc Reactor HUD, voice synthesis, multi-step actions, memory system, weather radar, app launcher, and intelligent intent processing.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
