@@ -3,10 +3,12 @@
   "short_name": "अंकिता AI",
   "description": "आपकी बुद्धिमान एआई और संपूर्ण मोबाइल असिस्टेंट (Ankita AI Assistant)",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#02050b",
   "theme_color": "#02050b",
   "orientation": "any",
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/icon-192.svg",
@@ -19,6 +21,29 @@
       "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "बात करें (Voice Talk)",
+      "short_name": "Voice",
+      "description": "सीधे अंकिता से बात करें",
+      "url": "/?action=voice",
+      "icons": [{ "src": "/icon-192.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "बातचीत रिकॉर्ड (Chat Record)",
+      "short_name": "Chat",
+      "description": "पूरी बातचीत का रिकॉर्ड देखें",
+      "url": "/?action=chat",
+      "icons": [{ "src": "/icon-192.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "मोबाइल सेंटर (Mobile Hub)",
+      "short_name": "Mobile",
+      "description": "बैटरी, टॉर्च, कॉल व टूल्स",
+      "url": "/?action=mobile",
+      "icons": [{ "src": "/icon-192.svg", "sizes": "192x192" }]
     }
   ],
   "categories": ["productivity", "utilities", "lifestyle"]

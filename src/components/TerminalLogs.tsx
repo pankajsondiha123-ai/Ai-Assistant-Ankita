@@ -16,7 +16,8 @@ import {
   Cpu,
   Bot,
   User,
-  X
+  X,
+  Plus
 } from 'lucide-react';
 import { playBeep, playConfirm } from '../utils/soundEffects';
 import { getAgcStatus, AgcStatus } from '../utils/speechRecognition';
@@ -161,6 +162,19 @@ export const TerminalLogs: React.FC<TerminalLogsProps> = ({
         </div>
 
         <div className="flex items-center gap-1">
+          {/* New Chat */}
+          <button
+            onClick={() => {
+              playConfirm();
+              onClear();
+            }}
+            className="p-1 sm:px-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-[#00ff88] border border-[#00ff88]/40 transition-all text-[11px] font-bold flex items-center gap-1"
+            title="नया चैट शुरू करें (New Chat)"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">नया चैट</span>
+          </button>
+
           {/* Export conversation */}
           <button
             onClick={handleExportChat}

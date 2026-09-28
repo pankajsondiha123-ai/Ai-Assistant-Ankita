@@ -15,7 +15,10 @@ import {
   RefreshCw,
   Layers,
   Save,
-  Trash2
+  Trash2,
+  MapPin,
+  Search,
+  Play
 } from 'lucide-react';
 import { playBeep, playConfirm, playAlert } from '../utils/soundEffects';
 
@@ -49,11 +52,17 @@ export const AppLauncherModal: React.FC<AppLauncherModalProps> = ({
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState('');
 
+  // YouTube & Maps in-app states
+  const [ytQuery, setYtQuery] = useState('Ankita AI Assistant Hindi');
+  const [mapQuery, setMapQuery] = useState('New Delhi, India');
+
   useEffect(() => {
     if (initialApp) {
       if (initialApp.toLowerCase().includes('calc')) setActiveTab('Calculator');
       else if (initialApp.toLowerCase().includes('note')) setActiveTab('Notes');
       else if (initialApp.toLowerCase().includes('cam') || initialApp.toLowerCase().includes('vision')) setActiveTab('Camera HUD');
+      else if (initialApp.toLowerCase().includes('youtube')) setActiveTab('YouTube');
+      else if (initialApp.toLowerCase().includes('map')) setActiveTab('Google Maps');
       else if (initialApp.toLowerCase().includes('terminal')) setActiveTab('Terminal');
       else setActiveTab('All Apps');
     }
@@ -168,6 +177,8 @@ export const AppLauncherModal: React.FC<AppLauncherModalProps> = ({
         <div className="flex border-b border-[#00f0ff]/20 bg-[#001424] text-xs font-orbitron overflow-x-auto">
           {[
             { id: 'Calculator', label: 'CALCULATOR', icon: Calculator },
+            { id: 'YouTube', label: 'YOUTUBE', icon: Youtube },
+            { id: 'Google Maps', label: 'GOOGLE MAPS', icon: MapPin },
             { id: 'Notes', label: 'MISSION NOTES', icon: FileText },
             { id: 'Camera HUD', label: 'VISION HUD', icon: Camera },
             { id: 'All Apps', label: 'APP DIRECTORY', icon: Layers },
@@ -397,6 +408,159 @@ export const AppLauncherModal: React.FC<AppLauncherModalProps> = ({
                     <span>TERMINATE OPTICAL STREAM</span>
                   </button>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* YOUTUBE SUB-APP */}
+          {activeTab === 'YouTube' && (
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 rounded-xl bg-[#001424] border border-red-500/40">
+                <div className="flex items-center gap-2 text-white font-orbitron font-bold text-sm">
+                  <Youtube className="w-5 h-5 text-red-500 fill-red-500" />
+                  <span>YOUTUBE DIRECT STREAM // वीडियो हब</span>
+                </div>
+                <button
+                  onClick={() => {
+                    playConfirm();
+                    window.location.href = 'https://www.youtube.com';
+                  }}
+                  className="w-full sm:w-auto px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-orbitron font-bold text-xs tracking-wider flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(239,68,68,0.5)] transition-all"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  <span>YouTube ऐप में सीधे खोलें (OPEN APP)</span>
+                </button>
+              </div>
+
+              {/* Search Bar */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={ytQuery}
+                  onChange={(e) => setYtQuery(e.target.value)}
+                  placeholder="गाना, वीडियो, ट्यूटोरियल या चैनल खोजें..."
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-[#000d1a] border border-[#00f0ff]/30 text-white font-sans text-xs focus:border-[#00f0ff] focus:outline-none"
+                />
+                <button
+                  onClick={() => {
+                    playConfirm();
+                    const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(ytQuery)}`;
+                    window.location.href = url;
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-[#002f5e] hover:bg-[#004080] border border-[#00f0ff]/40 text-[#00f0ff] font-orbitron text-xs flex items-center gap-1.5 transition-all"
+                >
+                  <Search className="w-4 h-4" />
+                  <span>खोजें</span>
+                </button>
+              </div>
+
+              {/* Quick Categories */}
+              <div className="flex flex-wrap gap-2 text-[11px] font-mono">
+                {[
+                  { label: '🎵 हिंदी गाने', query: 'Latest Hindi Songs 2026' },
+                  { label: '🚀 इसरो व स्पेस', query: 'ISRO Space Mission Hindi' },
+                  { label: '💻 पाइथन कोडिंग', query: 'Python Programming Full Course Hindi' },
+                  { label: '🤖 AI & रोबोटिक्स', query: 'Artificial Intelligence Hindi Documentary' },
+                ].map((item, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      playBeep(1100, 0.03);
+                      setYtQuery(item.query);
+                      window.location.href = `https://www.youtube.com/results?search_query=${encodeURIComponent(item.query)}`;
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-[#001f35] hover:bg-[#002f4f] border border-[#00f0ff]/20 text-[#8ffcff] hover:text-white transition-all flex items-center gap-1"
+                  >
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Embedded Player */}
+              <div className="aspect-video w-full rounded-2xl overflow-hidden border border-[#00f0ff]/30 bg-black shadow-[0_0_30px_rgba(0,0,0,0.8)]">
+                <iframe
+                  className="w-full h-full"
+                  src={`https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(ytQuery)}`}
+                  title="YouTube Player"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            </div>
+          )}
+
+          {/* GOOGLE MAPS SUB-APP */}
+          {activeTab === 'Google Maps' && (
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 rounded-xl bg-[#001424] border border-[#00f0ff]/40">
+                <div className="flex items-center gap-2 text-white font-orbitron font-bold text-sm">
+                  <MapPin className="w-5 h-5 text-[#00f0ff]" />
+                  <span>GOOGLE MAPS RADAR // नक्शा व नेविगेशन</span>
+                </div>
+                <button
+                  onClick={() => {
+                    playConfirm();
+                    window.location.href = `https://maps.google.com/?q=${encodeURIComponent(mapQuery)}`;
+                  }}
+                  className="w-full sm:w-auto px-4 py-2 rounded-xl bg-gradient-to-r from-[#00b4d8] to-[#00f0ff] text-[#001222] font-orbitron font-bold text-xs tracking-wider flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(0,240,255,0.4)] transition-all"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  <span>Google Maps ऐप में नेविगेट करें (OPEN MAPS)</span>
+                </button>
+              </div>
+
+              {/* Search Bar */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={mapQuery}
+                  onChange={(e) => setMapQuery(e.target.value)}
+                  placeholder="शहर, पता, या नज़दीकी जगह खोजें..."
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-[#000d1a] border border-[#00f0ff]/30 text-white font-sans text-xs focus:border-[#00f0ff] focus:outline-none"
+                />
+                <button
+                  onClick={() => {
+                    playConfirm();
+                    const url = `https://maps.google.com/?q=${encodeURIComponent(mapQuery)}`;
+                    window.location.href = url;
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-[#002f5e] hover:bg-[#004080] border border-[#00f0ff]/40 text-[#00f0ff] font-orbitron text-xs flex items-center gap-1.5 transition-all"
+                >
+                  <Search className="w-4 h-4" />
+                  <span>खोजें</span>
+                </button>
+              </div>
+
+              {/* Quick Places */}
+              <div className="flex flex-wrap gap-2 text-[11px] font-mono">
+                {[
+                  { label: '🏥 नज़दीकी अस्पताल', query: 'nearest hospital' },
+                  { label: '⛽ पेट्रोल पंप', query: 'petrol pump near me' },
+                  { label: '🍽️ रेस्तरां', query: 'restaurants near me' },
+                  { label: '🏦 एटीएम', query: 'ATM near me' },
+                ].map((item, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      playBeep(1100, 0.03);
+                      setMapQuery(item.query);
+                      window.location.href = `https://maps.google.com/?q=${encodeURIComponent(item.query)}`;
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-[#001f35] hover:bg-[#002f4f] border border-[#00f0ff]/20 text-[#8ffcff] hover:text-white transition-all flex items-center gap-1"
+                  >
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Embedded Map */}
+              <div className="aspect-video w-full rounded-2xl overflow-hidden border border-[#00f0ff]/30 bg-[#000d1a] shadow-[0_0_30px_rgba(0,0,0,0.8)]">
+                <iframe
+                  className="w-full h-full"
+                  src={`https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&t=&z=13&ie=UTF8&iwloc=&output=embed`}
+                  title="Google Maps Radar"
+                  allowFullScreen
+                />
               </div>
             </div>
           )}

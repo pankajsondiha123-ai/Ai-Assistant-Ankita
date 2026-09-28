@@ -31,6 +31,8 @@ export const DirectAppInstallModal: React.FC<DirectAppInstallModalProps> = ({
   const [copied, setCopied] = useState(false);
   const [installing, setInstalling] = useState(false);
 
+  const [showManualGuide, setShowManualGuide] = useState(false);
+
   if (!isOpen) return null;
 
   const currentUrl = typeof window !== 'undefined' ? window.location.href : appUrl;
@@ -47,16 +49,21 @@ export const DirectAppInstallModal: React.FC<DirectAppInstallModalProps> = ({
     playBeep(1200, 0.04);
     if (deferredPrompt) {
       setInstalling(true);
-      deferredPrompt.prompt();
-      const choice = await deferredPrompt.userChoice;
-      setInstalling(false);
-      if (choice.outcome === 'accepted') {
-        playConfirm();
-        onClose();
+      try {
+        deferredPrompt.prompt();
+        const choice = await deferredPrompt.userChoice;
+        if (choice.outcome === 'accepted') {
+          playConfirm();
+          onClose();
+        }
+      } catch (err) {
+        setShowManualGuide(true);
+      } finally {
+        setInstalling(false);
       }
     } else {
-      handleCopyLink();
-      alert('अपने फोन के ब्राउज़र में मेनू (3 बिंदु) पर टैप करके "Add to Home screen" या "Install" चुनें। डायरेक्ट लिंक कॉपी हो गया है!');
+      await handleCopyLink();
+      setShowManualGuide(true);
     }
   };
 

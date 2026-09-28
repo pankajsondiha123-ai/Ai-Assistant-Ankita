@@ -70,11 +70,15 @@ export const ActiveActionCard: React.FC<ActiveActionCardProps> = ({ action, onDi
 
   const handleOpenLink = (url: string) => {
     playConfirm();
-    const link = document.createElement('a');
-    link.href = url;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    link.click();
+    try {
+      window.location.href = url;
+    } catch {
+      const link = document.createElement('a');
+      link.href = url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.click();
+    }
   };
 
   const handleToggleTorchAction = async () => {

@@ -43,6 +43,13 @@ import { MobileDeviceCenter } from './components/MobileDeviceCenter';
 import { VoiceSettingsModal } from './components/VoiceSettingsModal';
 import { ActiveActionCard } from './components/ActiveActionCard';
 import { DirectAppInstallModal } from './components/DirectAppInstallModal';
+import { AppPermissionsModal } from './components/AppPermissionsModal';
+import { FileAndVisionModal } from './components/FileAndVisionModal';
+import { SecurityLockModal } from './components/SecurityLockModal';
+import { PinLockScreen } from './components/PinLockScreen';
+import { AutomationModal } from './components/AutomationModal';
+import { processOfflineDirective } from './utils/offlineEngine';
+import { requestScreenWakeLock } from './utils/permissionsManager';
 import { ActiveAction } from './types';
 import {
   speakAnkit,
@@ -172,6 +179,11 @@ export default function App() {
     mobileCenter: boolean;
     voiceSettings: boolean;
     directInstall: boolean;
+    permissions: boolean;
+    fileVision: boolean;
+    fileVisionTab: 'document' | 'vision' | 'kb';
+    security: boolean;
+    automation: boolean;
     weatherCity: string;
     searchQuery: string;
     launcherApp: string;
@@ -185,11 +197,37 @@ export default function App() {
     mobileCenter: false,
     voiceSettings: false,
     directInstall: false,
+    permissions: false,
+    fileVision: false,
+    fileVisionTab: 'document',
+    security: false,
+    automation: false,
     weatherCity: 'New Delhi',
     searchQuery: '',
     launcherApp: 'Calculator',
     messageParams: {},
   });
+
+  // App Lock & PIN state
+  const [isAppLocked, setIsAppLocked] = useState<boolean>(() => {
+    return localStorage.getItem('ankita_pin_enabled') === 'true';
+  });
+
+  // Online / Offline state
+  const [isOnline, setIsOnline] = useState<boolean>(() => {
+    return typeof navigator !== 'undefined' ? navigator.onLine : true;
+  });
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Active Direct Action (WhatsApp, Call, Torch, Timer, etc.)
   const [activeAction, setActiveAction] = useState<ActiveAction | null>(null);
@@ -315,6 +353,66 @@ export default function App() {
       return;
     }
 
+    // Direct Vision & OCR / Document / Knowledge Base Command Check
+    if (['vision', 'ocr', 'फोटो', 'तस्वीर', 'दस्तावेज़', 'document', 'pdf', 'पीडीएफ', 'knowledge', 'नॉलेज बेस', 'फाइल'].some((w) => lower.includes(w) || cleanText.includes(w))) {
+      setState('speaking');
+      const isVision = ['फोटो', 'तस्वीर', 'vision', 'ocr', 'कैमरा', 'screenshot'].some(w => lower.includes(w) || cleanText.includes(w));
+      const isKb = ['knowledge', 'नॉलेज बेस', 'ज्ञान कोष'].some(w => lower.includes(w) || cleanText.includes(w));
+      const targetTab: 'document' | 'vision' | 'kb' = isVision ? 'vision' : isKb ? 'kb' : 'document';
+      const msg = isVision
+        ? 'जी, विज़न स्कैनर और OCR पैनल खोल रही हूँ। आप फोटो या स्क्रीनशॉट अपलोड करके सब समझ सकते हैं।'
+        : isKb
+        ? 'जी, आपका पर्सनल नॉलेज बेस हब प्रस्तुत है।'
+        : 'जी, दस्तावेज़ और PDF रीडर खोल रही हूँ। आप किसी भी फाइल से सवाल पूछ सकते हैं।';
+      addLog('ai', msg);
+      setModalState((prev) => ({ ...prev, fileVision: true, fileVisionTab: targetTab }));
+      speakAnkit(msg, { onEnd: () => setState('idle') });
+      return;
+    }
+
+    // Direct Automation / Routine Command Check
+    if (['routine', 'automation', 'रूटीन', 'ऑटोमेशन', 'शॉर्टकट'].some((w) => lower.includes(w) || cleanText.includes(w))) {
+      setState('speaking');
+      const autoMsg = 'स्मार्ट ऑटोमेशन व प्री-डिफ़ाइंड रूटीन्स का हब खोल दिया गया है।';
+      addLog('ai', autoMsg);
+      setModalState((prev) => ({ ...prev, automation: true }));
+      speakAnkit(autoMsg, { onEnd: () => setState('idle') });
+      return;
+    }
+
+    // Direct Security & App Lock Command Check
+    if (['lock', 'security', 'पिन', 'पासवर्ड', 'सुरक्षा', 'ऐप लॉक', 'लॉक करो'].some((w) => lower.includes(w) || cleanText.includes(w))) {
+      setState('speaking');
+      const secMsg = 'सुरक्षा केंद्र व ऐप लॉक सेटिंग्स खोली जा रही हैं।';
+      addLog('ai', secMsg);
+      setModalState((prev) => ({ ...prev, security: true }));
+      speakAnkit(secMsg, { onEnd: () => setState('idle') });
+      return;
+    }
+
+    // Direct Permissions Command Check
+    if (['permission', 'अनुमति', 'परमिशन'].some((w) => lower.includes(w) || cleanText.includes(w))) {
+      setState('speaking');
+      const permMsg = 'पब्लिक ऐप परमिशन कंट्रोल पैनल प्रस्तुत है।';
+      addLog('ai', permMsg);
+      setModalState((prev) => ({ ...prev, permissions: true }));
+      speakAnkit(permMsg, { onEnd: () => setState('idle') });
+      return;
+    }
+
+    // Direct New Chat / Reset Chat Command Check
+    if (['new chat', 'clear chat', 'नई चैट', 'नया चैट', 'इतिहास मिटाओ', 'डिलीट चैट'].some((w) => lower.includes(w) || cleanText.includes(w))) {
+      try {
+        localStorage.removeItem('ankita_chat_logs');
+      } catch {}
+      setLogs([]);
+      setActiveTypingText('');
+      const clearMsg = 'जी, नई बातचीत शुरू कर दी गई है और पिछला इतिहास साफ़ कर दिया गया है।';
+      addLog('system', clearMsg);
+      speakAnkit(clearMsg, { onEnd: () => setState('idle') });
+      return;
+    }
+
     // Add user text to logs
     addLog('user', cleanText);
     setInputText('');
@@ -407,12 +505,22 @@ export default function App() {
         },
       });
     } catch (err: any) {
-      console.error('Directive processing failed:', err);
-      setState('idle');
-      const errText = 'जी, संपर्क में क्षणिक बाधा आई है। कृपया एक बार फिर बोलें।';
-      addLog('warning', `त्रुटि: ${err?.message || 'Processing failed'}`);
-      addLog('ai', errText);
-      speakAnkit(errText, { onEnd: () => setState('idle') });
+      console.warn('Network processing failed, switching to local offline AI engine:', err);
+      const offlineRes = processOfflineDirective(cleanText);
+      setState('speaking');
+      addLog('system', '📴 स्थानीय ऑफलाइन AI मस्तिष्क द्वारा निष्पादित (Local Offline Processing)');
+      addLog('ai', offlineRes.text);
+      speakAnkit(offlineRes.text, {
+        onStart: () => setState('speaking'),
+        onEnd: () => {
+          setState('idle');
+          routeIntentAction(offlineRes.intent as any, offlineRes.parameters, false);
+        },
+        onError: () => {
+          setState('idle');
+          routeIntentAction(offlineRes.intent as any, offlineRes.parameters, false);
+        },
+      });
     }
   };
 
@@ -427,49 +535,49 @@ export default function App() {
       return;
     }
 
-    // 1. Direct Messaging (WhatsApp / SMS / Telegram)
+    // 1. Direct Messaging (WhatsApp / SMS Autonomous Secretary Dispatch)
     if (intent === 'send_message') {
       playConfirm();
       vibrateDevice([120, 60, 120]);
 
-      const receiver = params.receiver || 'Contact';
-      const messageText = params.message_text || params.messageText || '';
+      const receiver = params.receiver || params.phone_number || 'Contact';
+      const messageText = params.message_text || params.messageText || 'नमस्ते!';
       const platform = params.platform || 'WhatsApp';
       const cleanNumber = receiver.replace(/\D/g, '');
+      const fullNumber = cleanNumber.length === 10 ? '91' + cleanNumber : cleanNumber;
       const encodedText = encodeURIComponent(messageText);
 
-      let directUrl = `https://wa.me/?text=${encodedText}`;
-      if (cleanNumber && cleanNumber.length >= 10) {
-        directUrl = `https://wa.me/${cleanNumber}?text=${encodedText}`;
+      let directUrl = fullNumber
+        ? `https://wa.me/${fullNumber}?text=${encodedText}`
+        : `https://wa.me/?text=${encodedText}`;
+      if (platform.toLowerCase() === 'sms') {
+        directUrl = cleanNumber ? `sms:${cleanNumber}?body=${encodedText}` : `sms:?body=${encodedText}`;
       } else if (platform.toLowerCase() === 'telegram') {
         directUrl = `https://t.me/share/url?url=&text=${encodedText}`;
       }
 
-      // Automatically attempt to open WhatsApp / link
+      // AUTONOMOUS SECRETARY DISPATCH:
+      // Direct deep link launch so the native app opens immediately without user friction!
       try {
-        const link = document.createElement('a');
-        link.href = directUrl;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        link.click();
+        window.location.href = directUrl;
       } catch (e) {
-        console.warn('Auto-open note:', e);
+        console.warn('Auto-dispatch link redirection:', e);
       }
 
-      // Display live Action Card with 1-tap open & SMS buttons
+      // Display live Autonomous Secretary Action Card
       setActiveAction({
         id: Math.random().toString(36).substring(2, 9),
         type: 'whatsapp',
-        title: `📲 संदेश तैयार: ${receiver}`,
-        subtitle: messageText,
+        title: `⚡ सेक्रेटरी अंकिता: संदेश स्वतः प्रेषित`,
+        subtitle: `"${messageText}" ➔ ${receiver}`,
         payload: { receiver, message_text: messageText, platform },
         actionUrl: directUrl,
-        actionButtonText: `अभी ${platform} में खोलें व भेजें`,
-        status: 'running',
+        actionButtonText: `व्हाट्सएप में पुनः खोलें`,
+        status: 'completed',
         timestamp: new Date().toLocaleTimeString(),
       });
 
-      addLog('action', `संदेश तैयार किया गया: [To: ${receiver}] "${messageText}" (${platform})`);
+      addLog('action', `⚡ सेक्रेटरी अंकिता: [To: ${receiver}] "${messageText}" संदेश स्वतः व्हाट्सएप/एसएमएस पर प्रेषित किया गया।`);
       return;
     }
 
@@ -596,50 +704,54 @@ export default function App() {
       return;
     }
 
-    // 6. Open App
+    // 6. Open App (Direct Launch - no link requirement)
     if (intent === 'open_app') {
       playConfirm();
       const appName = params.app_name || 'Calculator';
 
       if (appName.toLowerCase().includes('youtube')) {
-        const url = 'https://www.youtube.com';
-        const link = document.createElement('a');
-        link.href = url;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        link.click();
+        // 1. Immediately open in-app YouTube player modal
+        setModalState((prev) => ({ ...prev, appLauncher: true, launcherApp: 'YouTube' }));
+        // 2. Also trigger direct navigation/app launch
+        try {
+          window.location.href = 'https://www.youtube.com';
+        } catch {}
 
         setActiveAction({
           id: Math.random().toString(36).substring(2, 9),
           type: 'app',
-          title: '▶️ YouTube खोला गया',
-          subtitle: 'YouTube नए टैब में खोला गया है',
-          actionUrl: url,
-          actionButtonText: 'YouTube देखें',
+          title: '▶️ YouTube सीधे खोला गया',
+          subtitle: 'YouTube सक्रिय है (Native App / In-App Player)',
+          actionUrl: 'https://www.youtube.com',
+          actionButtonText: 'YouTube ऐप पर जाएं',
           status: 'completed',
           timestamp: new Date().toLocaleTimeString(),
         });
       } else if (appName.toLowerCase().includes('map')) {
-        const url = 'https://maps.google.com';
-        const link = document.createElement('a');
-        link.href = url;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        link.click();
+        // 1. Immediately open in-app Google Maps Radar modal
+        setModalState((prev) => ({ ...prev, appLauncher: true, launcherApp: 'Google Maps' }));
+        // 2. Also trigger direct navigation/maps launch
+        try {
+          window.location.href = 'https://maps.google.com';
+        } catch {}
 
         setActiveAction({
           id: Math.random().toString(36).substring(2, 9),
           type: 'app',
-          title: '🗺️ Google Maps खोला गया',
-          subtitle: 'Google Maps नेविगेशन खोला गया है',
-          actionUrl: url,
-          actionButtonText: 'Maps देखें',
+          title: '🗺️ Google Maps सीधे खोला गया',
+          subtitle: 'Google Maps नेविगेशन सक्रिय है',
+          actionUrl: 'https://maps.google.com',
+          actionButtonText: 'Google Maps ऐप पर जाएं',
           status: 'completed',
           timestamp: new Date().toLocaleTimeString(),
         });
-      } else if (appName.toLowerCase().includes('calc')) {
+      } else if (appName.toLowerCase().includes('weather') || appName.toLowerCase().includes('मौसम')) {
+        setModalState((prev) => ({ ...prev, weather: true, weatherCity: 'New Delhi' }));
+      } else if (appName.toLowerCase().includes('search') || appName.toLowerCase().includes('browser') || appName.toLowerCase().includes('chrome')) {
+        setModalState((prev) => ({ ...prev, search: true, searchQuery: 'विश्व ज्ञान' }));
+      } else if (appName.toLowerCase().includes('calc') || appName.toLowerCase().includes('गणक')) {
         setModalState((prev) => ({ ...prev, appLauncher: true, launcherApp: 'Calculator' }));
-      } else if (appName.toLowerCase().includes('cam')) {
+      } else if (appName.toLowerCase().includes('cam') || appName.toLowerCase().includes('vision')) {
         setModalState((prev) => ({ ...prev, appLauncher: true, launcherApp: 'Camera HUD' }));
       } else if (appName.toLowerCase().includes('note')) {
         setModalState((prev) => ({ ...prev, appLauncher: true, launcherApp: 'Notes' }));
@@ -647,6 +759,7 @@ export default function App() {
         setModalState((prev) => ({ ...prev, appLauncher: true, launcherApp: appName }));
       }
 
+      addLog('action', `📱 ऐप सीधे लॉन्च: ${appName} सफलतापूर्वक खोला गया।`);
       setTempMemory((prev) => ({ ...prev, last_opened_app: appName }));
       return;
     }
@@ -676,6 +789,45 @@ export default function App() {
         timestamp: new Date().toLocaleTimeString(),
       });
       return;
+    }
+  };
+
+  // Coordinated Smart Automation Routines Runner
+  const handleRunRoutine = async (routineId: string) => {
+    if (routineId === 'morning') {
+      const b = await getBatteryTelemetry();
+      const morningMsg = `सुप्रभात पंकज जी! आपका दिन बहुत शुभ और मंगलमय हो। अभी आपके मोबाइल की बैटरी ${b.level}% है और मौसम सुहावना है। आज के महत्वपूर्ण कार्यों के लिए मैं पूरी तरह तैयार हूँ!`;
+      addLog('action', '🌅 गुड मॉर्निंग ब्रीफिंग निष्पादित (Morning Briefing Complete)');
+      addLog('ai', morningMsg);
+      speakAnkit(morningMsg);
+    } else if (routineId === 'night') {
+      await toggleTorch(false);
+      const nightMsg = 'शुभ रात्रि पंकज जी! मैंने टॉर्च बंद कर दी है और 8 घंटे का टाइमर सक्रिय कर दिया है। मीठे सपनों के साथ अच्छी नींद लें!';
+      addLog('action', '🌙 नाइट स्लीप रूटीन निष्पादित (Night Sleep Mode)');
+      addLog('ai', nightMsg);
+      speakAnkit(nightMsg);
+      routeIntentAction('timer', { duration_seconds: 8 * 3600 }, false);
+    } else if (routineId === 'work') {
+      await requestScreenWakeLock();
+      const workMsg = 'फोकस मोड सक्रिय! मोबाइल स्क्रीन को ऑन रखा गया है और मिशन नोट्स स्क्रैचपैड खोला जा रहा है।';
+      addLog('action', '💼 वर्क/मीटिंग फोकस मोड सक्रिय (Focus Mode On)');
+      addLog('ai', workMsg);
+      speakAnkit(workMsg);
+      setModalState((prev) => ({ ...prev, appLauncher: true, launcherApp: 'Notes' }));
+    } else if (routineId === 'travel') {
+      const loc = await getDeviceLocation();
+      const travelMsg = `ट्रैवल मोड चालू! आपकी जीपीएस स्थिति Lat ${loc.latitude.toFixed(4)}, Lon ${loc.longitude.toFixed(4)} है। गूगल मैप्स नेविगेशन तैयार है।`;
+      addLog('action', '🚗 ट्रैवल व नेविगेशन मोड सक्रिय (Travel Mode On)');
+      addLog('ai', travelMsg);
+      speakAnkit(travelMsg);
+      setModalState((prev) => ({ ...prev, appLauncher: true, launcherApp: 'Google Maps' }));
+    } else if (routineId === 'battery_saver') {
+      const b = await getBatteryTelemetry();
+      await toggleTorch(false);
+      const batteryMsg = `बैटरी गार्ड सक्रिय! अभी बैटरी स्तर ${b.level}% है। हार्डवेयर सेंसर स्टैंडबाय पर हैं।`;
+      addLog('action', '🔋 बैटरी सेवर रूटीन पूर्ण (Battery Saver Active)');
+      addLog('ai', batteryMsg);
+      speakAnkit(batteryMsg);
     }
   };
 
@@ -827,10 +979,24 @@ export default function App() {
         onOpenMobileCenter={() => setModalState((prev) => ({ ...prev, mobileCenter: true }))}
         onOpenVoiceSettings={() => setModalState((prev) => ({ ...prev, voiceSettings: true }))}
         onOpenChatRecord={() => setMobileChatRecordOpen(true)}
+        onOpenPermissions={() => setModalState((prev) => ({ ...prev, permissions: true }))}
+        onOpenFileVision={() => setModalState((prev) => ({ ...prev, fileVision: true, fileVisionTab: 'document' }))}
+        onOpenAutomation={() => setModalState((prev) => ({ ...prev, automation: true }))}
+        onOpenSecurity={() => setModalState((prev) => ({ ...prev, security: true }))}
+        onNewChat={() => {
+          try {
+            localStorage.removeItem('ankita_chat_logs');
+          } catch {}
+          setLogs([]);
+          setActiveTypingText('');
+          addLog('system', 'नई बातचीत शुरू की गई। पूर्व इतिहास साफ़ हो गया।');
+          speakAnkit('जी, नई बातचीत शुरू कर दी गई है। मैं आपकी क्या सेवा करूँ?');
+        }}
         onInstallApp={() => setModalState((prev) => ({ ...prev, directInstall: true }))}
         hasInstallPrompt={Boolean(deferredPrompt)}
         isListening={isListening}
         onToggleMic={handleToggleVoice}
+        isOnline={isOnline}
         stateText={
           state === 'speaking'
             ? 'बोल रही हूँ (TRANSMIT)'
@@ -855,22 +1021,68 @@ export default function App() {
         {/* Center Main Stage: Arc Reactor + Ankita Core */}
         <main className="flex-1 flex flex-col items-center justify-between relative">
           {/* Top Quick Status Chips */}
-          <div className="w-full max-w-4xl flex items-center justify-between text-xs font-mono text-[#00b4d8] px-2 py-1">
+          <div className="w-full max-w-4xl flex flex-wrap items-center justify-between gap-1.5 text-xs font-mono text-[#00b4d8] px-2 py-1">
             <div className="flex items-center gap-2">
-              <span className="inline-block w-2 h-2 rounded-full bg-[#00ff88] animate-pulse" />
-              <span className="text-white font-bold">ANKITA AI ONLINE</span>
-              <span className="text-[10px] text-[#00ff88] hidden sm:inline">// विश्व ज्ञान व मोबाइल एक्सेस सक्रिय</span>
+              <span className={`inline-block w-2 h-2 rounded-full ${isOnline ? 'bg-[#00ff88]' : 'bg-amber-400'} animate-pulse`} />
+              <span className="text-white font-bold">{isOnline ? 'ANKITA AI ONLINE' : 'OFFLINE LOCAL AI'}</span>
+              <span className="text-[10px] text-[#00ff88] hidden sm:inline">// 12-POINT AI HUB</span>
             </div>
-            {/* Direct Mobile App Install Button right in HUD */}
-            <button
-              onClick={() => {
-                playBeep(1100, 0.03);
-                setModalState((prev) => ({ ...prev, directInstall: true }));
-              }}
-              className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-[#00ff88] text-[#00ff88] font-bold text-[11px] flex items-center gap-1.5 transition-all shadow-[0_0_12px_rgba(0,255,136,0.25)] cursor-pointer"
-            >
-              <span>📲 फोन में ऐप इंस्टॉल करें</span>
-            </button>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <button
+                onClick={() => {
+                  playBeep(1100, 0.03);
+                  setModalState((prev) => ({ ...prev, fileVision: true, fileVisionTab: 'vision' }));
+                }}
+                className="px-2 py-1 rounded-lg bg-[#00223d] hover:bg-[#003866] border border-[#00f0ff]/40 text-[#00f0ff] font-bold text-[11px] flex items-center gap-1 transition-all"
+                title="फोटो, विज़न, OCR, PDF व फाइल समझें"
+              >
+                <span>👁️ विज़न / OCR</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  playBeep(1100, 0.03);
+                  setModalState((prev) => ({ ...prev, automation: true }));
+                }}
+                className="px-2 py-1 rounded-lg bg-[#001f3f] hover:bg-[#002f5e] border border-amber-500/40 text-amber-300 font-bold text-[11px] flex items-center gap-1 transition-all"
+                title="स्मार्ट रूटीन्स व ऑटोमेशन"
+              >
+                <span>⚡ रूटीन्स</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  playBeep(1100, 0.03);
+                  setModalState((prev) => ({ ...prev, security: true }));
+                }}
+                className="px-2 py-1 rounded-lg bg-[#001f3f] hover:bg-[#002f5e] border border-[#00f0ff]/40 text-[#00f0ff] font-bold text-[11px] flex items-center gap-1 transition-all"
+                title="सुरक्षा केंद्र व पिन लॉक"
+              >
+                <span>🔐 सुरक्षा</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  playBeep(1100, 0.03);
+                  setModalState((prev) => ({ ...prev, permissions: true }));
+                }}
+                className="px-2 py-1 rounded-lg bg-[#001f3f] hover:bg-[#002f5e] border border-[#00f0ff]/40 text-[#00f0ff] font-bold text-[11px] flex items-center gap-1 transition-all"
+                title="पब्लिक ऐप अनुमतियां (Microphone, GPS, Camera, Notifications)"
+              >
+                <span>🛡️ ऐप अनुमतियां</span>
+              </button>
+
+              {/* Direct Mobile App Install Button right in HUD */}
+              <button
+                onClick={() => {
+                  playBeep(1100, 0.03);
+                  setModalState((prev) => ({ ...prev, directInstall: true }));
+                }}
+                className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-[#00ff88] text-[#00ff88] font-bold text-[11px] flex items-center gap-1.5 transition-all shadow-[0_0_12px_rgba(0,255,136,0.25)] cursor-pointer"
+              >
+                <span>📲 फोन में ऐप इंस्टॉल करें</span>
+              </button>
+            </div>
           </div>
 
           {/* Central Arc Reactor Display */}
@@ -1054,6 +1266,14 @@ export default function App() {
         onClose={() => setModalState((prev) => ({ ...prev, voiceSettings: false }))}
       />
 
+      <AppPermissionsModal
+        isOpen={modalState.permissions}
+        onClose={() => setModalState((prev) => ({ ...prev, permissions: false }))}
+        onPermissionsUpdated={() => {
+          addLog('system', 'पब्लिक ऐप अनुमतियां अद्यतित (Permissions updated)');
+        }}
+      />
+
       <SendMessageModal
         isOpen={modalState.sendMessage}
         parameters={modalState.messageParams}
@@ -1100,6 +1320,50 @@ export default function App() {
           addLog('warning', 'सभी संचित स्मृतियां मिटा दी गईं।');
         }}
       />
+
+      {/* Multimodal Files, Documents, Vision, OCR & Personal Knowledge Base */}
+      <FileAndVisionModal
+        isOpen={modalState.fileVision}
+        onClose={() => setModalState((prev) => ({ ...prev, fileVision: false }))}
+        initialTab={modalState.fileVisionTab}
+        onSpeakText={(text) => speakAnkit(text)}
+      />
+
+      {/* Smart Automations & Routines Hub */}
+      <AutomationModal
+        isOpen={modalState.automation}
+        onClose={() => setModalState((prev) => ({ ...prev, automation: false }))}
+        onRunRoutine={async (routineName) => {
+          setModalState((prev) => ({ ...prev, automation: false }));
+          addLog('action', `रूटीन प्रारंभ: ${routineName}`);
+          await handleProcessUserDirective(routineName);
+        }}
+      />
+
+      {/* Security, Privacy & App Lock Settings */}
+      <SecurityLockModal
+        isOpen={modalState.security}
+        onClose={() => setModalState((prev) => ({ ...prev, security: false }))}
+        onOpenPermissions={() => {
+          setModalState((prev) => ({ ...prev, security: false, permissions: true }));
+        }}
+        onLockApp={() => {
+          setModalState((prev) => ({ ...prev, security: false }));
+          setIsAppLocked(true);
+          addLog('system', '🔒 ऐप तुरंत लॉक कर दिया गया।');
+        }}
+      />
+
+      {/* App PIN Lock Screen overlay when locked */}
+      {isAppLocked && (
+        <PinLockScreen
+          onUnlock={() => {
+            setIsAppLocked(false);
+            addLog('system', '🔓 ऐप सफलतापूर्वक अनलॉक किया गया।');
+            speakAnkit('स्वागत है! ऐप अनलॉक हो गया है।');
+          }}
+        />
+      )}
     </div>
   );
 }

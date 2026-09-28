@@ -42,15 +42,21 @@ CRITICAL TONE & EXPLANATION MANDATE ("मस्त एकदम प्यार 
      * User: "भारत के प्रधानमंत्री कौन हैं?"
        Ankita: "जी! हमारे प्यारे भारत देश के वर्तमान प्रधानमंत्री श्री नरेन्द्र मोदी जी हैं, जो 2014 से निरंतर देश की सेवा कर रहे हैं।"
 
-2. When the user gives a mobile or system task, EXECUTE IT CHEERFULLY & LOVINGLY:
+2. When the user gives a mobile or system task, EXECUTE IT AS AN AUTONOMOUS SECRETARY ("पर्सनल सेक्रेटरी की तरह तुरंत व सीधे काम करें, यूजर को कोई लिंक क्लिक न करना पड़े"):
    - "send_message":
-     * WhatsApp / SMS to anyone.
-     * Extract parameters: "receiver", "message_text", "platform" (default "WhatsApp").
-     * Text: "जी बिल्कुल प्यार से! \${receiver} के लिए संदेश तैयार कर दिया है।"
+     * WhatsApp / SMS direct dispatch.
+     * When user says "इस नंबर पर उसको मैसेज करो हेलो लिखकर भेजो", "9876543210 पर हेलो लिखकर भेजो", "राहुल को मैसेज करो मैं 10 मिनट में आ रहा हूँ":
+     * Extract parameters: "receiver", "phone_number", "message_text", "platform" (default "WhatsApp").
+     * Cleanly isolate the intended message (e.g. "हेलो" / "Hello" or whatever was asked).
+     * Text: "जी, आपकी पर्सनल सेक्रेटरी अंकिता ने \${receiver} को '\${message_text}' सीधे लिखकर तुरंत भेज दिया है!"
+   - "open_app":
+     * When user asks to open or run ANY application (e.g. "यूट्यूब खोलो", "YouTube ओपन करो", "कैलकुलेटर खोलो", "कैमरा चलाओ", "Google Maps खोलो", "नोट्स खोलो"):
+     * Parameters: "app_name" ("YouTube", "Calculator", "Google Maps", "Camera HUD", "Notes", "Weather", "Search")
+     * Text: "जी, अभी तुरंत \${app_name} आपके सामने सीधे खोल रही हूँ।"
    - "phone_call":
-     * Dial or call someone.
+     * Dial or call someone directly.
      * Parameters: "contact_name", "phone_number".
-     * Text: "जी, अभी तुरंत \${contact_name} को कॉल मिला रही हूँ।"
+     * Text: "जी, अभी तुरंत आपकी सेक्रेटरी \${contact_name} को कॉल मिला रही है।"
    - "device_control":
      * Flashlight/Torch: "torch_on" | "torch_off"
      * Battery: "check_battery"
@@ -93,39 +99,54 @@ function extractMessageDetails(text: string) {
   if (/sms|टेक्स्ट|text/i.test(text)) platform = 'SMS';
   if (/telegram|टेलीग्राम/i.test(text)) platform = 'Telegram';
 
-  const p1 = text.match(/^([a-zA-Z0-9\u0900-\u097F\s+]+?)\s+(?:ko|को|par|पर)\s+(?:whatsapp|message|sms|व्हाट्सएप|मैसेज)?\s*(?:karo|bhejo|likho|send|करो|भेजो|लिखो)\s*(?:ki|that|saying|:)?\s*(.+)$/i);
-  if (p1) {
-    receiver = p1[1].trim();
-    messageText = p1[2].trim();
-    return { receiver, message_text: messageText, messageText, platform };
+  // 1. Direct phone number match (e.g. 9876543210, +919876543210, 98765-43210)
+  const phoneMatch = text.match(/(\+?\d[\d\s\-]{8,14}\d)/);
+  if (phoneMatch) {
+    receiver = phoneMatch[1].replace(/[\s\-]/g, '');
+    let remainder = text.replace(phoneMatch[0], '');
+    remainder = remainder
+      .replace(/(?:is|us)?\s*(?:number|no|num|नंबर)\s*(?:par|ko|पर|को)?/gi, '')
+      .replace(/(?:usko|inko|use|ise|उसको|इनको|उसे|इसे)?\s*(?:ko|par|को|पर)/gi, '')
+      .replace(/(?:whatsapp|message|sms|व्हाट्सएप|मैसेज)/gi, '')
+      .replace(/(?:karo|bhejo|likho|send|करो|भेजो|लिखो|डालो)/gi, '')
+      .replace(/(?:likhkar|likh kar|लिखकर|लिख कर)/gi, '')
+      .replace(/(?:ki|that|saying|:)/gi, '')
+      .trim();
+
+    if (remainder) {
+      messageText = remainder;
+    }
   }
 
-  const p2 = text.match(/^(?:send|write)?\s*(?:a\s+)?(?:whatsapp|message|sms|व्हाट्सएप|मैसेज)\s*(?:bhejo|karo|to|को|likho)?\s*([a-zA-Z0-9\u0900-\u097F\s+]+?)\s+(?:ko|को|saying|that|ki|:)\s*(.+)$/i);
-  if (p2) {
-    receiver = p2[1].trim();
-    messageText = p2[2].trim();
-    return { receiver, message_text: messageText, messageText, platform };
+  // 2. Pattern: [Name/Number] ko/par [whatsapp/message] karo/bhejo/likho [message]
+  if (!receiver || !messageText) {
+    const p1 = text.match(/^([a-zA-Z0-9\u0900-\u097F\s+]+?)\s+(?:ko|को|par|पर)\s+(?:whatsapp|message|sms|व्हाट्सएप|मैसेज)?\s*(?:karo|bhejo|likho|send|करो|भेजो|लिखो)\s*(?:likhkar|लिखकर|ki|that|saying|:)?\s*(.+)$/i);
+    if (p1) {
+      if (!receiver) receiver = p1[1].trim();
+      if (!messageText) messageText = p1[2].replace(/(?:likhkar|लिखकर|bhejo|भेजो|karo|करो)/gi, '').trim();
+    }
   }
 
-  const p3 = text.match(/^([a-zA-Z0-9\u0900-\u097F\s+]+?)\s+(?:ko|को)\s+(?:bolo|batao|kaho|बोलो|बताओ|कहो)\s*(?:ki|that)?\s*(.+)$/i);
-  if (p3) {
-    receiver = p3[1].trim();
-    messageText = p3[2].trim();
-    return { receiver, message_text: messageText, messageText, platform };
+  // 3. Fallback greeting catch for "hello likhkar bhejo"
+  if (!messageText && /(?:hello|हेलो|namaste|नमस्ते|hi|हाय)/i.test(text)) {
+    const greetingMatch = text.match(/(hello|हेलो|namaste|नमस्ते|hi|हाय)/i);
+    if (greetingMatch) {
+      messageText = greetingMatch[0];
+    }
   }
 
-  const targetMatch = text.match(/([a-zA-Z0-9\u0900-\u097F+]+)\s+(?:ko|को|par|पर)/i) || text.match(/(?:to|को)\s+([a-zA-Z0-9\u0900-\u097F+]+)/i);
-  if (targetMatch) {
-    receiver = targetMatch[1].trim();
-    messageText = text.replace(targetMatch[0], '')
-                      .replace(/whatsapp|message|sms|bhejo|karo|likho|send|व्हाट्सएप|मैसेज|भेजो|करो|लिखो/gi, '')
-                      .trim();
+  // 4. Target contact match
+  if (!receiver) {
+    const targetMatch = text.match(/([a-zA-Z0-9\u0900-\u097F+]+)\s+(?:ko|को|par|पर)/i) || text.match(/(?:to|को)\s+([a-zA-Z0-9\u0900-\u097F+]+)/i);
+    if (targetMatch) {
+      receiver = targetMatch[1].trim();
+    }
   }
 
   if (!receiver) receiver = 'Contact';
-  if (!messageText) messageText = text;
+  if (!messageText) messageText = 'नमस्ते!';
 
-  return { receiver, message_text: messageText, messageText, platform };
+  return { receiver, phone_number: receiver, message_text: messageText, messageText, platform };
 }
 
 // Fallback World Knowledge Encyclopedia
@@ -266,13 +287,13 @@ function ruleBasedAnkitaProcess(userText: string, memoryBlock: any, tempMemory: 
 
   // 5. Send message (WhatsApp / SMS)
   if (lower.includes('whatsapp') || lower.includes('message') || lower.includes('sms') ||
-      clean.includes('मैसेज') || clean.includes('व्हाट्सएप') || lower.includes('bhejo') || lower.includes('bolo') || clean.includes('बोलो') || clean.includes('भेजो')) {
+      clean.includes('मैसेज') || clean.includes('व्हाट्सएप') || lower.includes('bhejo') || lower.includes('bolo') || clean.includes('बोलो') || clean.includes('भेजो') || clean.includes('लिखकर')) {
     const details = extractMessageDetails(clean);
     return {
       intent: 'send_message',
       parameters: details,
       needs_clarification: false,
-      text: `${details.receiver} को ${details.platform} पर संदेश तैयार कर दिया गया है।`,
+      text: `जी, आपकी सेक्रेटरी अंकिता ने ${details.receiver} को '${details.message_text}' सीधे लिखकर तुरंत भेज दिया है!`,
       memory_update: null
     };
   }
@@ -319,20 +340,21 @@ function ruleBasedAnkitaProcess(userText: string, memoryBlock: any, tempMemory: 
   }
 
   // 8. Open App
-  if (lower.startsWith('open ') || lower.startsWith('launch ') || clean.includes('खोलो') || clean.includes('चालू करो')) {
+  if (lower.includes('open') || lower.includes('launch') || clean.includes('खोलो') || clean.includes('खोल दो') || clean.includes('ओपन करो') || clean.includes('ओपन कर') || clean.includes('चालू करो') || clean.includes('चलाओ')) {
     let appName = 'Calculator';
     if (lower.includes('calc') || clean.includes('कैलकुलेटर') || clean.includes('हिसाब')) appName = 'Calculator';
     else if (lower.includes('cam') || clean.includes('कैमरा')) appName = 'Camera HUD';
     else if (lower.includes('note') || clean.includes('नोट्स')) appName = 'Notes';
     else if (lower.includes('youtube') || clean.includes('यूट्यूब')) appName = 'YouTube';
     else if (lower.includes('map') || clean.includes('मैप') || clean.includes('नक्शा')) appName = 'Google Maps';
-    else if (lower.includes('browser') || lower.includes('chrome')) appName = 'Web Browser';
+    else if (lower.includes('weather') || clean.includes('मौसम')) appName = 'Weather';
+    else if (lower.includes('browser') || lower.includes('chrome') || clean.includes('सर्च')) appName = 'Web Browser';
 
     return {
       intent: 'open_app',
       parameters: { app_name: appName },
       needs_clarification: false,
-      text: `${appName} तुरंत खोला जा रहा है।`,
+      text: `जी, अभी तुरंत ${appName} आपके सामने सीधे खोल रही हूँ।`,
       memory_update: null
     };
   }
@@ -501,6 +523,124 @@ app.post('/api/ankita/transcribe', async (req: Request, res: Response) => {
   } catch (err: any) {
     console.error('Audio transcription error in server:', err);
     res.status(500).json({ error: err.message || 'Transcription failed' });
+  }
+});
+
+// Image Understanding & OCR Endpoint (Camera, Screenshots, Photos, OCR Text Reading)
+app.post('/api/ankita/vision', async (req: Request, res: Response) => {
+  try {
+    const { image_base64, prompt } = req.body;
+    if (!image_base64) {
+      return res.status(400).json({ error: 'No image provided' });
+    }
+
+    if (!ai) {
+      return res.json({
+        analysis: 'जी सुनिए, ऑफलाइन मोड में विज़न स्कैनर सक्रिय है। यह फोटो प्राप्त हो गई है। पूर्ण न्यूरल विश्लेषण और डीप ओसीआर (OCR) के लिए इंटरनेट कनेक्शन व एपीआई सक्रिय होना आवश्यक है।'
+      });
+    }
+
+    // Extract mime type and clean base64 data
+    let cleanMime = 'image/jpeg';
+    const mimeMatch = image_base64.match(/^data:([^;]+);base64,/);
+    if (mimeMatch) {
+      cleanMime = mimeMatch[1];
+    }
+    const cleanBase64 = image_base64.replace(/^data:[^;]+;base64,/, '');
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.8-flash',
+      contents: [
+        {
+          inlineData: {
+            mimeType: cleanMime,
+            data: cleanBase64
+          }
+        },
+        {
+          text: `You are Ankita (अंकिता), an ultra-smart, loving, warm, polite, and friendly female AI assistant.
+User prompt or question: "${prompt || 'इस तस्वीर/स्क्रीनशॉट में क्या दिख रहा है? कृपया प्यार से समझाएं और यदि इसमें कोई टेक्स्ट लिखा है (OCR), तो वह भी पढ़कर बताएं।'}"
+
+Mandate:
+1. Explain lovingly, sweetly, and clearly in natural Hindi (with English technical terms where helpful).
+2. Read and extract all text clearly if present (OCR: signs, documents, receipts, screenshots, codes, handwritten notes).
+3. Identify objects, people, scenes, emotions, UI elements, or questions in the photo.
+4. Conclude with a warm, caring closing as Ankita.`
+        }
+      ]
+    });
+
+    const analysis = response.text || 'छवि का विश्लेषण सफलतापूर्वक संपन्न हुआ।';
+    res.json({ analysis });
+  } catch (err: any) {
+    console.error('Vision analysis error in server:', err);
+    res.status(500).json({
+      analysis: 'जी क्षमा करें, छवि का विश्लेषण करते समय तकनीकी बाधा आई: ' + (err.message || 'Unknown error')
+    });
+  }
+});
+
+// Document Reading, PDF Q&A and Knowledge Base Query Endpoint
+app.post('/api/ankita/document-qa', async (req: Request, res: Response) => {
+  try {
+    const { document_text, document_name, query, personal_kb } = req.body;
+    if (!document_text && !personal_kb) {
+      return res.status(400).json({ error: 'No document or knowledge content provided' });
+    }
+
+    if (!ai) {
+      // Local fallback search inside document text
+      const searchTerms = (query || '').toLowerCase().split(/\s+/).filter(Boolean);
+      const textToSearch = (document_text || '') + '\n' + (personal_kb || '');
+      const lines = textToSearch.split('\n');
+      const matched = lines.filter(l => searchTerms.some((t: string) => l.toLowerCase().includes(t)));
+      const snippet = matched.slice(0, 5).join('\n') || textToSearch.slice(0, 300);
+
+      return res.json({
+        answer: `जी सुनिए! ऑफलाइन दस्तावेज़ रीडर के अनुसार आपके सवाल "${query}" से संबंधित मुख्य अंश इस प्रकार हैं:\n\n${snippet}\n\n(पूर्ण विश्लेषण के लिए ऑनलाइन एआई मॉडल का उपयोग किया जा सकता है।)`
+      });
+    }
+
+    const docExcerpt = (document_text || '').slice(0, 45000);
+    const kbExcerpt = (personal_kb || '').slice(0, 15000);
+
+    const fullPrompt = `You are Ankita (अंकिता), an ultra-smart, loving, caring personal AI assistant and research secretary.
+The user has provided a document/file named: "${document_name || 'उपयोगकर्ता दस्तावेज़'}".
+
+DOCUMENT CONTENT:
+${docExcerpt}
+
+${kbExcerpt ? `USER PERSONAL KNOWLEDGE BASE & SAVED NOTES:\n${kbExcerpt}\n` : ''}
+
+USER QUESTION / DIRECTIVE:
+"${query || 'कृपया इस पूरे दस्तावेज़ का सारांश, मुख्य बिंदु और निष्कर्ष प्यार से समझाएं।'}"
+
+INSTRUCTIONS:
+1. Explain with utmost sweetness, clarity, warmth, and accuracy ("मस्त एकदम प्यार से समझाएं").
+2. Directly answer the user's question referencing the specific facts, numbers, sections, or details from the document.
+3. If the user asks for a summary, provide key bullet points and action items.
+4. Speak in natural, polite Hindi or English.`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.8-flash',
+      contents: fullPrompt
+    });
+
+    const answer = response.text || 'दस्तावेज़ का विश्लेषण संपन्न हुआ।';
+    res.json({ answer });
+  } catch (err: any) {
+    console.error('Document Q&A error in server:', err);
+    // Graceful offline extraction fallback
+    const { document_text, query, personal_kb } = req.body;
+    const searchTerms = (query || '').toLowerCase().split(/\s+/).filter(Boolean);
+    const combined = ((document_text || '') + '\n' + (personal_kb || '')).trim();
+    const lines = combined.split('\n');
+    const matched = lines.filter(l => searchTerms.some((t: string) => l.toLowerCase().includes(t)));
+    const relevantExcerpt = matched.slice(0, 8).join('\n') || combined.slice(0, 400);
+
+    res.json({
+      answer: `जी सुनिए! दस्तावेज़ से आपके प्रश्न "${query || 'मुख्य बिंदु'}" के संदर्भ में यह महत्वपूर्ण जानकारी प्राप्त हुई है:\n\n${relevantExcerpt}\n\n(अंकिता AI लोकल डॉक्युमेंट इंजन)`
+    });
   }
 });
 

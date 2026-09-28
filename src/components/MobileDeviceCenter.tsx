@@ -17,7 +17,9 @@ import {
   Wifi,
   Copy,
   Check,
-  Navigation
+  Navigation,
+  User,
+  Plus
 } from 'lucide-react';
 import {
   getBatteryTelemetry,
@@ -64,6 +66,24 @@ export const MobileDeviceCenter: React.FC<MobileDeviceCenterProps> = ({
   const [network, setNetwork] = useState(getNetworkStatus());
   const [copied, setCopied] = useState(false);
   const [notifSent, setNotifSent] = useState(false);
+
+  // Phone Contacts Directory state
+  const [contacts, setContacts] = useState<Array<{ name: string; number: string; tag: string }>>(() => {
+    try {
+      const saved = localStorage.getItem('ankita_phone_contacts');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [
+      { name: 'आपातकालीन (Police)', number: '112', tag: 'Emergency' },
+      { name: 'एम्बुलेंस (Ambulance)', number: '108', tag: 'Medical' },
+      { name: 'माँ (Mom)', number: '9876543210', tag: 'Family' },
+      { name: 'पापा (Dad)', number: '9876543211', tag: 'Family' },
+      { name: 'ऑफिस (Work)', number: '9876543212', tag: 'Work' },
+    ];
+  });
+  const [newContactName, setNewContactName] = useState('');
+  const [newContactNumber, setNewContactNumber] = useState('');
+  const [showAddContact, setShowAddContact] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -300,7 +320,76 @@ export const MobileDeviceCenter: React.FC<MobileDeviceCenterProps> = ({
           <div className="p-4 rounded-xl bg-[#001424] border border-[#00f0ff]/30 space-y-3">
             <div className="flex items-center gap-2 text-[#00f0ff] font-orbitron font-bold text-xs border-b border-[#00f0ff]/20 pb-2">
               <Phone className="w-4 h-4 text-[#00ff88]" />
-              <span>DIRECT PHONE DIALER & MESSAGING // सीधे कॉल व मैसेज</span>
+              <span>DIRECT PHONE DIALER & CONTACTS // सीधे कॉल व संपर्क</span>
+            </div>
+
+            {/* Quick Contacts Directory Chips */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-[11px] text-[#00b4d8] font-mono">
+                <span>त्वरित संपर्क (Quick Contacts):</span>
+                <button
+                  onClick={() => setShowAddContact(!showAddContact)}
+                  className="text-[#00ff88] hover:underline flex items-center gap-0.5 text-[10px]"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>{showAddContact ? 'बंद करें' : 'नया संपर्क जोड़ें'}</span>
+                </button>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5">
+                {contacts.map((c, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      playBeep(1100, 0.03);
+                      setPhoneNumber(c.number);
+                    }}
+                    className={`px-2.5 py-1 rounded-lg border text-xs font-sans transition-all flex items-center gap-1.5 ${
+                      phoneNumber === c.number
+                        ? 'bg-[#00ff88]/20 border-[#00ff88] text-[#00ff88]'
+                        : 'bg-[#001020] border-[#00f0ff]/20 text-cyan-200 hover:border-[#00f0ff]'
+                    }`}
+                  >
+                    <User className="w-3 h-3 text-[#00f0ff]" />
+                    <span className="font-semibold">{c.name}</span>
+                    <span className="text-[10px] text-gray-400 font-mono">({c.number})</span>
+                  </button>
+                ))}
+              </div>
+
+              {showAddContact && (
+                <div className="p-2.5 rounded-lg bg-[#000d1a] border border-[#00ff88]/30 flex flex-col sm:flex-row gap-2 mt-2">
+                  <input
+                    type="text"
+                    placeholder="नाम (Name)"
+                    value={newContactName}
+                    onChange={(e) => setNewContactName(e.target.value)}
+                    className="flex-1 px-2.5 py-1.5 rounded bg-[#001424] border border-[#00f0ff]/30 text-white text-xs"
+                  />
+                  <input
+                    type="tel"
+                    placeholder="फ़ोन नंबर (Phone)"
+                    value={newContactNumber}
+                    onChange={(e) => setNewContactNumber(e.target.value)}
+                    className="flex-1 px-2.5 py-1.5 rounded bg-[#001424] border border-[#00f0ff]/30 text-white text-xs font-mono"
+                  />
+                  <button
+                    onClick={() => {
+                      if (!newContactName.trim() || !newContactNumber.trim()) return;
+                      playConfirm();
+                      const updated = [...contacts, { name: newContactName.trim(), number: newContactNumber.trim(), tag: 'Custom' }];
+                      setContacts(updated);
+                      try { localStorage.setItem('ankita_phone_contacts', JSON.stringify(updated)); } catch {}
+                      setNewContactName('');
+                      setNewContactNumber('');
+                      setShowAddContact(false);
+                    }}
+                    className="px-3 py-1.5 rounded bg-emerald-500 text-black font-bold text-xs shrink-0"
+                  >
+                    सहेजें
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
