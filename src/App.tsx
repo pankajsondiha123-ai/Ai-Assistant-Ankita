@@ -18,7 +18,9 @@ import {
   Sliders,
   Languages,
   Phone,
-  Flashlight
+  Flashlight,
+  Crown,
+  UserCheck
 } from 'lucide-react';
 import {
   AssistantState,
@@ -28,6 +30,7 @@ import {
   LogEntry,
   LongTermMemory,
   TemporaryMemory,
+  AppUser,
 } from './types';
 import { ArcReactor } from './components/ArcReactor';
 import { TerminalLogs } from './components/TerminalLogs';
@@ -48,6 +51,8 @@ import { FileAndVisionModal } from './components/FileAndVisionModal';
 import { SecurityLockModal } from './components/SecurityLockModal';
 import { PinLockScreen } from './components/PinLockScreen';
 import { AutomationModal } from './components/AutomationModal';
+import { AdminDashboard } from './components/AdminDashboard';
+import { UserAuthModal } from './components/UserAuthModal';
 import { processOfflineDirective } from './utils/offlineEngine';
 import { requestScreenWakeLock } from './utils/permissionsManager';
 import { ActiveAction } from './types';
@@ -212,6 +217,42 @@ export default function App() {
   const [isAppLocked, setIsAppLocked] = useState<boolean>(() => {
     return localStorage.getItem('ankita_pin_enabled') === 'true';
   });
+
+  // User Authentication & Admin Panel state
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(() => {
+    try {
+      const saved = localStorage.getItem('ankita_current_user');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return null;
+  });
+
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('ankita_current_user');
+      if (saved) {
+        const u = JSON.parse(saved);
+        return u.role === 'admin' || u.email?.toLowerCase() === 'bhajanfeel4@gmail.com';
+      }
+    } catch {}
+    return false;
+  });
+
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [globalAnnouncement, setGlobalAnnouncement] = useState('');
+
+  // Fetch initial system settings & announcement
+  useEffect(() => {
+    fetch('/api/admin/settings')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.globalAnnouncement) {
+          setGlobalAnnouncement(data.globalAnnouncement);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Online / Offline state
   const [isOnline, setIsOnline] = useState<boolean>(() => {
@@ -390,6 +431,74 @@ export default function App() {
       return;
     }
 
+    // Direct Creator Mandate Check: "तुम्हें किसने बनाया है"
+    if (
+      ['kisne banaya', 'who made you', 'who created you', 'who built you', 'creator', 'किसने बनाया', 'तुम्हें किसने बनाया', 'तुम्हारा निर्माता'].some(
+        (w) => lower.includes(w) || cleanText.includes(w)
+      )
+    ) {
+      setState('speaking');
+      const creatorMsg = 'मुझे आदित्य सर ने बनाया है।';
+      addLog('ai', creatorMsg);
+      speakAnkit(creatorMsg, { onEnd: () => setState('idle') });
+      return;
+    }
+
+    // Direct Custom Name Handling: Admin has full authority, normal members are refused
+    if (
+      ['manchahe naam', 'man chahe', 'apne manchahe', 'manpasand naam', 'favorite name', 'मनचाहे नाम', 'मनचाहा नाम', 'मनपसंद नाम'].some(
+        (w) => lower.includes(w) || cleanText.includes(w)
+      )
+    ) {
+      const isSuperAdmin = currentUser?.email?.toLowerCase() === 'bhajanfeel4@gmail.com';
+      setState('speaking');
+      if (isSuperAdmin) {
+        const adminNameMsg =
+          'जी आदित्य सर! आप मुझे जिस भी नाम से बुलाना चाहें या मुझे जो भी नाम देने का आदेश दें, मैं खुशी-खुशी स्वीकार करती हूँ। बताइए सर, आपके लिए क्या करूँ?';
+        addLog('ai', adminNameMsg);
+        speakAnkit(adminNameMsg, { onEnd: () => setState('idle') });
+        return;
+      }
+      const customNameMsg =
+        'क्षमा कीजिए, मैं आपको किसी मनचाहे नाम से नहीं बुला सकती और न ही कोई मुझे अपने मनचाहे नाम से बुला सकता है। मेरा नाम सिर्फ और सिर्फ अंकिता (Ankita) है, और मुझे आदित्य सर ने बनाया है।';
+      addLog('ai', customNameMsg);
+      speakAnkit(customNameMsg, { onEnd: () => setState('idle') });
+      return;
+    }
+
+    // Direct Admin / Operator Panel Command Check
+    if (['admin', 'admin panel', 'एडमिन', 'एडमिन पैनल', 'operator', 'ऑपरेटर', 'डैशबोर्ड'].some((w) => lower.includes(w) || cleanText.includes(w))) {
+      setState('speaking');
+      const adminMsg = isAdminLoggedIn
+        ? 'जी, ऑपरेटर एडमिन पैनल आपके सामने खोल रही हूँ।'
+        : 'जी, ऑपरेटर पावर और एडमिन पैनल खोलने के लिए कृपया क्रेडेंशियल दर्ज करें।';
+      addLog('ai', adminMsg);
+      setIsAdminModalOpen(true);
+      speakAnkit(adminMsg, { onEnd: () => setState('idle') });
+      return;
+    }
+
+    // Direct Login / Register / Profile Command Check
+    if (['login', 'register', 'लॉगिन', 'रजिस्टर', 'साइन अप', 'प्रोफाइल', 'अकाउंट'].some((w) => lower.includes(w) || cleanText.includes(w))) {
+      setState('speaking');
+      const authMsg = currentUser
+        ? `जी, आपकी प्रोफाइल खुली है: ${currentUser.email}`
+        : 'जी, कृपया अपने Gmail और पासवर्ड से रजिस्टर या लॉगिन करें।';
+      addLog('ai', authMsg);
+      setIsAuthModalOpen(true);
+      speakAnkit(authMsg, { onEnd: () => setState('idle') });
+      return;
+    }
+
+    // Check if user is banned
+    if (currentUser?.permissions?.isBanned) {
+      setState('speaking');
+      const banMsg = 'क्षमा करें, आपका खाता एडमिन द्वारा प्रतिबंधित (Block) किया गया है। कृपया ऑपरेटर एडमिन से संपर्क करें।';
+      addLog('warning', banMsg);
+      speakAnkit(banMsg, { onEnd: () => setState('idle') });
+      return;
+    }
+
     // Direct Permissions Command Check
     if (['permission', 'अनुमति', 'परमिशन'].some((w) => lower.includes(w) || cleanText.includes(w))) {
       setState('speaking');
@@ -435,6 +544,9 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_text: effectiveUserText,
+          user_email: currentUser?.email || '',
+          user_role: currentUser?.role || 'user',
+          is_admin: currentUser?.email?.toLowerCase() === 'bhajanfeel4@gmail.com',
           memory_block: longTermMemory,
           temp_memory: {
             ...tempMemory,
@@ -961,7 +1073,7 @@ export default function App() {
 
   return (
     <div className="relative flex flex-col h-screen w-screen bg-[#02050b] text-[#8ffcff] overflow-hidden select-none font-sans">
-      {/* Background Cybernetic Grid & Radial HUD Ambient */}
+      {/* Background Cybernetic Grid & Radial HUD Ambient (Original website theme restored) */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(0,180,255,0.12)_0%,transparent_65%)] pointer-events-none" />
       <div
         className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[linear-gradient(to_right,#00f0ff_1px,transparent_1px),linear-gradient(to_bottom,#00f0ff_1px,transparent_1px)] bg-[size:48px_48px]"
@@ -997,6 +1109,11 @@ export default function App() {
         isListening={isListening}
         onToggleMic={handleToggleVoice}
         isOnline={isOnline}
+        onOpenAdminDashboard={() => setIsAdminModalOpen(true)}
+        onOpenUserAuth={() => setIsAuthModalOpen(true)}
+        currentUser={currentUser}
+        isAdminLoggedIn={isAdminLoggedIn}
+        announcement={globalAnnouncement}
         stateText={
           state === 'speaking'
             ? 'बोल रही हूँ (TRANSMIT)'
@@ -1007,6 +1124,25 @@ export default function App() {
             : 'अंकिता AI सक्रिय'
         }
       />
+
+      {/* Global Broadcast Announcement Marquee / Banner if active */}
+      {globalAnnouncement && (
+        <div className="relative z-20 w-full bg-gradient-to-r from-amber-950/90 via-[#001f3f]/95 to-amber-950/90 border-b border-amber-400/40 px-3 py-1 flex items-center justify-between text-xs font-mono text-amber-200">
+          <div className="flex items-center gap-2 truncate">
+            <span className="px-1.5 py-0.2 rounded bg-amber-400 text-black font-bold text-[10px] uppercase shrink-0">
+              OPERATOR BROADCAST
+            </span>
+            <span className="truncate">{globalAnnouncement}</span>
+          </div>
+          <button
+            onClick={() => setGlobalAnnouncement('')}
+            className="text-amber-400 hover:text-white text-xs px-1 cursor-pointer shrink-0"
+            title="बंद करें"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Main Workspace Area */}
       <div className="flex-1 flex overflow-hidden p-2 sm:p-3 gap-3 relative z-10">
@@ -1028,6 +1164,36 @@ export default function App() {
               <span className="text-[10px] text-[#00ff88] hidden sm:inline">// 12-POINT AI HUB</span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap">
+              {/* Admin Panel Quick Chip - EXCLUSIVELY for bhajanfeel4@gmail.com */}
+              {currentUser?.email?.toLowerCase() === 'bhajanfeel4@gmail.com' && (
+                <button
+                  onClick={() => {
+                    playBeep(1200, 0.03);
+                    setIsAdminModalOpen(true);
+                  }}
+                  className="px-2 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400 text-amber-300 font-bold text-[11px] flex items-center gap-1 transition-all cursor-pointer shadow-[0_0_10px_rgba(251,191,36,0.3)] animate-pulse"
+                  title="एडमिन व ऑपरेटर डैशबोर्ड खोलें"
+                >
+                  <Crown className="w-3.5 h-3.5 text-amber-400" />
+                  <span>👑 एडमिन पैनल</span>
+                </button>
+              )}
+
+              {/* User Account / Profile Chip */}
+              <button
+                onClick={() => {
+                  playBeep(1100, 0.03);
+                  setIsAuthModalOpen(true);
+                }}
+                className="px-2 py-1 rounded-lg bg-[#001f3f] hover:bg-[#002f5e] border border-[#00f0ff]/40 text-[#00f0ff] font-bold text-[11px] flex items-center gap-1 transition-all cursor-pointer"
+                title="खाता प्रबंधित करें या लॉगिन करें"
+              >
+                <UserCheck className="w-3.5 h-3.5 text-[#00ff88]" />
+                <span className="truncate max-w-[100px]">
+                  {currentUser ? currentUser.name : 'लॉगिन / साइन-अप'}
+                </span>
+              </button>
+
               <button
                 onClick={() => {
                   playBeep(1100, 0.03);
@@ -1039,59 +1205,67 @@ export default function App() {
                 <span>👁️ विज़न / OCR</span>
               </button>
 
-              <button
-                onClick={() => {
-                  playBeep(1100, 0.03);
-                  setModalState((prev) => ({ ...prev, automation: true }));
-                }}
-                className="px-2 py-1 rounded-lg bg-[#001f3f] hover:bg-[#002f5e] border border-amber-500/40 text-amber-300 font-bold text-[11px] flex items-center gap-1 transition-all"
-                title="स्मार्ट रूटीन्स व ऑटोमेशन"
-              >
-                <span>⚡ रूटीन्स</span>
-              </button>
+              {currentUser?.email?.toLowerCase() === 'bhajanfeel4@gmail.com' && (
+                <button
+                  onClick={() => {
+                    playBeep(1100, 0.03);
+                    setModalState((prev) => ({ ...prev, automation: true }));
+                  }}
+                  className="px-2 py-1 rounded-lg bg-[#001f3f] hover:bg-[#002f5e] border border-amber-500/40 text-amber-300 font-bold text-[11px] flex items-center gap-1 transition-all"
+                  title="स्मार्ट रूटीन्स व ऑटोमेशन"
+                >
+                  <span>⚡ रूटीन्स</span>
+                </button>
+              )}
 
-              <button
-                onClick={() => {
-                  playBeep(1100, 0.03);
-                  setModalState((prev) => ({ ...prev, security: true }));
-                }}
-                className="px-2 py-1 rounded-lg bg-[#001f3f] hover:bg-[#002f5e] border border-[#00f0ff]/40 text-[#00f0ff] font-bold text-[11px] flex items-center gap-1 transition-all"
-                title="सुरक्षा केंद्र व पिन लॉक"
-              >
-                <span>🔐 सुरक्षा</span>
-              </button>
+              {currentUser?.email?.toLowerCase() === 'bhajanfeel4@gmail.com' && (
+                <>
+                  <button
+                    onClick={() => {
+                      playBeep(1100, 0.03);
+                      setModalState((prev) => ({ ...prev, security: true }));
+                    }}
+                    className="px-2 py-1 rounded-lg bg-[#001f3f] hover:bg-[#002f5e] border border-[#00f0ff]/40 text-[#00f0ff] font-bold text-[11px] flex items-center gap-1 transition-all"
+                    title="सुरक्षा केंद्र व पिन लॉक"
+                  >
+                    <span>🔐 सुरक्षा</span>
+                  </button>
 
-              <button
-                onClick={() => {
-                  playBeep(1100, 0.03);
-                  setModalState((prev) => ({ ...prev, permissions: true }));
-                }}
-                className="px-2 py-1 rounded-lg bg-[#001f3f] hover:bg-[#002f5e] border border-[#00f0ff]/40 text-[#00f0ff] font-bold text-[11px] flex items-center gap-1 transition-all"
-                title="पब्लिक ऐप अनुमतियां (Microphone, GPS, Camera, Notifications)"
-              >
-                <span>🛡️ ऐप अनुमतियां</span>
-              </button>
+                  <button
+                    onClick={() => {
+                      playBeep(1100, 0.03);
+                      setModalState((prev) => ({ ...prev, permissions: true }));
+                    }}
+                    className="px-2 py-1 rounded-lg bg-[#001f3f] hover:bg-[#002f5e] border border-[#00f0ff]/40 text-[#00f0ff] font-bold text-[11px] flex items-center gap-1 transition-all"
+                    title="पब्लिक ऐप अनुमतियां (Microphone, GPS, Camera, Notifications)"
+                  >
+                    <span>🛡️ ऐप अनुमतियां</span>
+                  </button>
 
-              {/* Direct Mobile App Install Button right in HUD */}
-              <button
-                onClick={() => {
-                  playBeep(1100, 0.03);
-                  setModalState((prev) => ({ ...prev, directInstall: true }));
-                }}
-                className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-[#00ff88] text-[#00ff88] font-bold text-[11px] flex items-center gap-1.5 transition-all shadow-[0_0_12px_rgba(0,255,136,0.25)] cursor-pointer"
-              >
-                <span>📲 फोन में ऐप इंस्टॉल करें</span>
-              </button>
+                  {/* Direct Mobile App Install Button right in HUD */}
+                  <button
+                    onClick={() => {
+                      playBeep(1100, 0.03);
+                      setModalState((prev) => ({ ...prev, directInstall: true }));
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-[#00ff88] text-[#00ff88] font-bold text-[11px] flex items-center gap-1.5 transition-all shadow-[0_0_12px_rgba(0,255,136,0.25)] cursor-pointer"
+                  >
+                    <span>📲 फोन में ऐप इंस्टॉल करें</span>
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
-          {/* Central Arc Reactor Display */}
+          {/* Central Solar Star Sun Heart Display */}
           <div className="relative flex-1 flex flex-col items-center justify-center my-auto">
+            {/* Ambient Sun Corona Backdrop Glow */}
+            <div className="absolute w-[460px] h-[460px] rounded-full bg-[radial-gradient(circle,rgba(255,100,0,0.22)_0%,rgba(255,40,0,0.08)_45%,transparent_70%)] filter blur-2xl pointer-events-none animate-solar-pulse" />
             <ArcReactor
               state={state}
               onClick={handleToggleVoice}
               audioLevel={audioLevel}
-              size={380}
+              size={390}
             />
 
             {/* Interim live speech transcript preview */}
@@ -1364,6 +1538,66 @@ export default function App() {
           }}
         />
       )}
+
+      {/* Admin Dashboard & Operator Panel */}
+      <AdminDashboard
+        isOpen={isAdminModalOpen}
+        onClose={() => setIsAdminModalOpen(false)}
+        currentUserEmail={currentUser?.email}
+        isAdminLoggedIn={isAdminLoggedIn}
+        onAdminLogin={(user) => {
+          setCurrentUser(user);
+          setIsAdminLoggedIn(true);
+          try {
+            localStorage.setItem('ankita_current_user', JSON.stringify(user));
+          } catch {}
+          addLog('system', `👑 ऑपरेटर एडमिन लॉगिन: ${user.email} (OPERATOR POWERS ACTIVE)`);
+        }}
+        onAdminLogout={() => {
+          setIsAdminLoggedIn(false);
+          setCurrentUser(null);
+          try {
+            localStorage.removeItem('ankita_current_user');
+          } catch {}
+          addLog('system', 'एडमिन सत्र समाप्त हुआ।');
+          speakAnkit('एडमिन सत्र समाप्त कर दिया गया है।');
+        }}
+        onBroadcastAnnouncement={(text) => {
+          setGlobalAnnouncement(text);
+          addLog('action', `📢 ऑपरेटर घोषणा प्रसारित: "${text}"`);
+          speakAnkit(`घोषणा: ${text}`);
+        }}
+        onSpeak={(text) => speakAnkit(text)}
+      />
+
+      {/* Mandatory User Authentication Gateway (Register first -> then Login) */}
+      <UserAuthModal
+        isOpen={!currentUser || isAuthModalOpen}
+        isMandatory={!currentUser}
+        onClose={() => setIsAuthModalOpen(false)}
+        currentUser={currentUser}
+        onUserLoginSuccess={(user, isOperator) => {
+          setCurrentUser(user);
+          if (isOperator || user.role === 'admin' || user.email.toLowerCase() === 'bhajanfeel4@gmail.com') {
+            setIsAdminLoggedIn(true);
+          }
+          try {
+            localStorage.setItem('ankita_current_user', JSON.stringify(user));
+          } catch {}
+          addLog('system', `👤 यूज़र प्रमाणित: ${user.name} (${user.email}) - ${user.role.toUpperCase()}`);
+        }}
+        onUserLogout={() => {
+          setCurrentUser(null);
+          setIsAdminLoggedIn(false);
+          try {
+            localStorage.removeItem('ankita_current_user');
+          } catch {}
+          addLog('system', 'उपयोगकर्ता सत्र लॉगआउट हुआ।');
+          speakAnkit('आप सफलतापूर्वक लॉगआउट हो गए हैं।');
+        }}
+        onOpenAdminDashboard={() => setIsAdminModalOpen(true)}
+        onSpeak={(text) => speakAnkit(text)}
+      />
     </div>
   );
 }

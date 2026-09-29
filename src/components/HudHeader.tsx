@@ -22,9 +22,13 @@ import {
   Lock,
   Wifi,
   WifiOff,
-  PlusCircle
+  PlusCircle,
+  Crown,
+  User,
+  Sparkles
 } from 'lucide-react';
 import { isSoundEnabled, setSoundEnabled, playBeep } from '../utils/soundEffects';
+import { AppUser } from '../types';
 
 interface HudHeaderProps {
   onOpenMemory: () => void;
@@ -45,6 +49,11 @@ interface HudHeaderProps {
   onToggleMic: () => void;
   isOnline?: boolean;
   stateText: string;
+  onOpenAdminDashboard?: () => void;
+  onOpenUserAuth?: () => void;
+  currentUser?: AppUser | null;
+  isAdminLoggedIn?: boolean;
+  announcement?: string;
 }
 
 export const HudHeader: React.FC<HudHeaderProps> = ({
@@ -66,10 +75,16 @@ export const HudHeader: React.FC<HudHeaderProps> = ({
   onToggleMic,
   isOnline = true,
   stateText,
+  onOpenAdminDashboard,
+  onOpenUserAuth,
+  currentUser = null,
+  isAdminLoggedIn = false,
+  announcement = '',
 }) => {
   const [timeStr, setTimeStr] = useState('');
   const [soundOn, setSoundOn] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const isSuperAdmin = currentUser?.email?.toLowerCase() === 'bhajanfeel4@gmail.com';
 
   useEffect(() => {
     const updateTime = () => {
@@ -161,6 +176,48 @@ export const HudHeader: React.FC<HudHeaderProps> = ({
 
       {/* Right Action buttons */}
       <div className="flex items-center gap-1 sm:gap-2">
+        {/* Admin Dashboard & Operator Panel Button - Strictly for Super Admin */}
+        {isSuperAdmin && onOpenAdminDashboard && (
+          <button
+            onClick={() => {
+              playBeep(1200, 0.03);
+              onOpenAdminDashboard();
+            }}
+            className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg border flex items-center gap-1.5 text-xs font-orbitron font-extrabold tracking-wider transition-all cursor-pointer ${
+              isAdminLoggedIn
+                ? 'bg-gradient-to-r from-amber-500/25 via-orange-500/25 to-amber-400/25 border-amber-400 text-amber-300 shadow-[0_0_15px_rgba(251,191,36,0.4)] animate-pulse'
+                : 'bg-[#001f3f] border-amber-500/40 text-amber-400 hover:border-amber-400 hover:bg-[#002f5e]'
+            }`}
+            title="एडमिन व ऑपरेटर पैनल खोलें (Admin Dashboard & Operator Controls)"
+          >
+            <Crown className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span className="hidden sm:inline">
+              {isAdminLoggedIn ? '👑 ADMIN PANEL' : 'ADMIN PANEL'}
+            </span>
+          </button>
+        )}
+
+        {/* User Account / Profile / Auth Button */}
+        {onOpenUserAuth && (
+          <button
+            onClick={() => {
+              playBeep(1100, 0.03);
+              onOpenUserAuth();
+            }}
+            className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg border flex items-center gap-1.5 text-xs font-mono font-bold transition-all cursor-pointer ${
+              currentUser
+                ? 'bg-[#002b4d] border-[#00ff88]/50 text-[#00ff88]'
+                : 'bg-[#001b33] border-[#00f0ff]/30 text-[#00b4d8] hover:text-white hover:border-[#00f0ff]'
+            }`}
+            title={currentUser ? `लॉगिन: ${currentUser.email}` : 'रजिस्टर या लॉगिन करें (Register / Login)'}
+          >
+            <User className="w-3.5 h-3.5 text-[#00ff88]" />
+            <span className="hidden md:inline truncate max-w-[110px]">
+              {currentUser ? currentUser.name || currentUser.email.split('@')[0] : 'लॉगिन / साइन-अप'}
+            </span>
+          </button>
+        )}
+
         {/* New Chat Button */}
         {onNewChat && (
           <button
@@ -191,8 +248,8 @@ export const HudHeader: React.FC<HudHeaderProps> = ({
           </button>
         )}
 
-        {/* Smart Automations & Routines */}
-        {onOpenAutomation && (
+        {/* Smart Automations & Routines - Admin only */}
+        {isSuperAdmin && onOpenAutomation && (
           <button
             onClick={() => {
               playBeep(1100, 0.03);
@@ -206,8 +263,8 @@ export const HudHeader: React.FC<HudHeaderProps> = ({
           </button>
         )}
 
-        {/* Security & App Lock */}
-        {onOpenSecurity && (
+        {/* Security & App Lock - Admin only */}
+        {isSuperAdmin && onOpenSecurity && (
           <button
             onClick={() => {
               playBeep(1100, 0.03);
@@ -220,8 +277,8 @@ export const HudHeader: React.FC<HudHeaderProps> = ({
             <span className="hidden xl:inline">सुरक्षा</span>
           </button>
         )}
-        {/* Public App Permissions Button */}
-        {onOpenPermissions && (
+        {/* Public App Permissions Button - Admin only */}
+        {isSuperAdmin && onOpenPermissions && (
           <button
             onClick={() => {
               playBeep(1100, 0.03);
@@ -250,18 +307,20 @@ export const HudHeader: React.FC<HudHeaderProps> = ({
           </button>
         )}
 
-        {/* Mobile Command Center Button */}
-        <button
-          onClick={() => {
-            playBeep(1100, 0.03);
-            onOpenMobileCenter();
-          }}
-          className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg bg-[#00ff88]/15 border border-[#00ff88]/40 text-[#00ff88] hover:bg-[#00ff88]/25 transition-all flex items-center gap-1.5 text-xs font-orbitron"
-          title="Open Mobile Controls (Battery, Torch, GPS, Call, SMS)"
-        >
-          <Smartphone className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">MOBILE</span>
-        </button>
+        {/* Mobile Command Center Button - Admin only */}
+        {isSuperAdmin && (
+          <button
+            onClick={() => {
+              playBeep(1100, 0.03);
+              onOpenMobileCenter();
+            }}
+            className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg bg-[#00ff88]/15 border border-[#00ff88]/40 text-[#00ff88] hover:bg-[#00ff88]/25 transition-all flex items-center gap-1.5 text-xs font-orbitron"
+            title="Open Mobile Controls (Battery, Torch, GPS, Call, SMS)"
+          >
+            <Smartphone className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">MOBILE</span>
+          </button>
+        )}
 
         {/* Voice Calibrate Button */}
         <button
@@ -316,18 +375,20 @@ export const HudHeader: React.FC<HudHeaderProps> = ({
           <span className="hidden lg:inline">APPS</span>
         </button>
 
-        {/* PWA Direct App Install Button */}
-        <button
-          onClick={() => {
-            playBeep(1100, 0.03);
-            if (onInstallApp) onInstallApp();
-          }}
-          className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg bg-gradient-to-r from-emerald-500/25 to-teal-400/25 border border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88]/30 transition-all flex items-center gap-1 text-xs font-orbitron font-bold shadow-[0_0_15px_rgba(0,255,136,0.3)]"
-          title="Install App to Phone Home Screen"
-        >
-          <Download className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">ऐप इंस्टॉल</span>
-        </button>
+        {/* PWA Direct App Install Button - Admin only */}
+        {isSuperAdmin && (
+          <button
+            onClick={() => {
+              playBeep(1100, 0.03);
+              if (onInstallApp) onInstallApp();
+            }}
+            className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg bg-gradient-to-r from-emerald-500/25 to-teal-400/25 border border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88]/30 transition-all flex items-center gap-1 text-xs font-orbitron font-bold shadow-[0_0_15px_rgba(0,255,136,0.3)]"
+            title="Install App to Phone Home Screen"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">ऐप इंस्टॉल</span>
+          </button>
+        )}
 
         {/* Sound toggle */}
         <button

@@ -68,3 +68,51 @@ export interface LogEntry {
 }
 
 export type AssistantState = 'idle' | 'listening' | 'processing' | 'speaking';
+
+export type UserRole = 'admin' | 'operator' | 'user';
+export type ActivityStatus = 'online' | 'idle' | 'offline';
+
+export interface UserPermissions {
+  canUseVoice: boolean;
+  canUseAiChat: boolean;
+  canUseDeviceControls: boolean;
+  canUseVisionOcr: boolean;
+  canUseAutomations: boolean;
+  isBanned: boolean;
+}
+
+export interface AppUser {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  status: ActivityStatus;
+  lastActive: string;
+  registeredAt: string;
+  loginCount: number;
+  permissions: UserPermissions;
+  ipAddress?: string;
+  device?: string;
+}
+
+export interface SystemAuditLog {
+  id: string;
+  timestamp: string;
+  userEmail: string;
+  action: string;
+  category: 'auth' | 'admin' | 'ai' | 'device' | 'security' | 'system';
+  severity: 'info' | 'warning' | 'error' | 'critical';
+  details?: string;
+}
+
+export interface SystemSettings {
+  aiTone: 'loving' | 'professional' | 'creative' | 'concise';
+  temperature: number;
+  maintenanceMode: boolean;
+  lockdownMode: boolean;
+  globalAnnouncement: string;
+  requireAuthToUse: boolean;
+  maxRequestsPerUser: number;
+  allowNewRegistrations: boolean;
+}
+

@@ -123,7 +123,35 @@ export function processOfflineDirective(userText: string): OfflineResponse {
     };
   }
 
-  // 9. Offline Encyclopedia Knowledge
+  // 9. Offline Encyclopedia Knowledge, Creator & Identity
+  if (
+    lower.includes('kisne banaya') ||
+    lower.includes('who made you') ||
+    lower.includes('who created you') ||
+    clean.includes('किसने बनाया') ||
+    clean.includes('तुम्हें किसने बनाया') ||
+    clean.includes('तुम्हारा निर्माता')
+  ) {
+    return {
+      intent: 'world_knowledge',
+      parameters: {},
+      text: 'मुझे आदित्य सर ने बनाया है।',
+    };
+  }
+
+  if (
+    lower.includes('manchahe naam') ||
+    lower.includes('man chahe') ||
+    clean.includes('मनचाहे नाम') ||
+    clean.includes('मनपसंद नाम')
+  ) {
+    return {
+      intent: 'world_knowledge',
+      parameters: {},
+      text: 'क्षमा कीजिए, मैं आपको किसी मनचाहे नाम से नहीं बुला सकती और न ही कोई मुझे अपने मनचाहे नाम से बुला सकता है। मेरा नाम सिर्फ और सिर्फ अंकिता (Ankita) है, और मुझे आदित्य सर ने बनाया है।',
+    };
+  }
+
   if (lower.includes('pradhanmantri') || clean.includes('प्रधानमंत्री') || lower.includes('prime minister')) {
     return {
       intent: 'world_knowledge',

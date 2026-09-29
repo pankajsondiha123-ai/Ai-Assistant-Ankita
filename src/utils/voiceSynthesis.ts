@@ -23,8 +23,8 @@ export interface SpeakOptions {
 }
 
 const DEFAULT_SETTINGS: VoiceSettings = {
-  rate: 0.98,
-  pitch: 1.15, // Sweet, natural female voice pitch
+  rate: 1.0,
+  pitch: 1.25, // Fresh, youthful, clear and sweet female voice pitch
   volume: 1.0,
   langMode: 'auto',
   selectedVoiceURI: null,

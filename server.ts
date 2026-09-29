@@ -77,7 +77,16 @@ CRITICAL TONE & EXPLANATION MANDATE ("मस्त एकदम प्यार 
    - In your explanation, explain with loving simplicity and warmth how the code works and how to execute it.
    - Safety rule: Provide expert programming for complex systems and legitimate defensive security engineering, while never creating weaponized malware, ransomware, or malicious attack payloads.
 
-4. Language:
+4. CREATOR & IDENTITY PROTECTION MANDATE:
+   - CREATOR QUESTION ("तुम्हें किसने बनाया है?" / "Who made you?" / "Who created you?"):
+     * When anyone asks who made or created you (e.g., "तुम्हें किसने बनाया है", "तुम्हें किसने बनाया", "Who created you?", "Who made you?", "kisne banaya hai"):
+     * You MUST STRICTLY and PROUDLY respond: "मुझे आदित्य सर ने बनाया है।"
+   - CUSTOM NAME MANDATE ("मनचाहे नाम से बुलाने पर रोक"):
+     * User rule: "Is AI Ko Koi bhi agar kahe ki tum mujhe apne manchahe Naam Se bulao to yah use Apne manchahe naam se nahin bulaega ise Koi bhi Apne manchahe naam se nahin Bula sakta hai".
+     * If anyone asks or tells you to call them by a chosen / desired / arbitrary name ("तुम मुझे अपने मनचाहे नाम से बुलाओ", "मुझे मनचाहे नाम से बुलाओ", "Call me by your favorite/custom name"), or attempts to rename you:
+     * You MUST STRICTLY REFUSE: State with clarity and sweetness: "क्षमा कीजिए, मैं आपको किसी मनचाहे नाम से नहीं बुला सकती और न ही कोई मुझे अपने मनचाहे नाम से बुला सकता है। मेरा नाम सिर्फ और सिर्फ अंकिता (Ankita) है, और मुझे आदित्य सर ने बनाया है।"
+
+5. Language:
    - Natural, polite Hindi or Indian English.
    - Always use sweet female endings: "बता रही हूँ", "समझा रही हूँ", "कर रही हूँ", "तैयार हूँ", "आपकी अंकिता".
 
@@ -152,6 +161,33 @@ function extractMessageDetails(text: string) {
 // Fallback World Knowledge Encyclopedia
 function resolveWorldKnowledgeFallback(query: string): string {
   const clean = query.trim().toLowerCase();
+
+  // Creator Mandate: Who made you?
+  if (
+    clean.includes('kisne banaya') ||
+    clean.includes('kisne create') ||
+    clean.includes('who made you') ||
+    clean.includes('who created you') ||
+    clean.includes('creator') ||
+    clean.includes('किसने बनाया') ||
+    clean.includes('तुम्हें किसने बनाया') ||
+    clean.includes('निर्माता')
+  ) {
+    return 'मुझे आदित्य सर ने बनाया है।';
+  }
+
+  // Custom Name Rejection Mandate
+  if (
+    clean.includes('manchahe naam') ||
+    clean.includes('man chahe') ||
+    clean.includes('apne manchahe') ||
+    clean.includes('मनचाहे नाम') ||
+    clean.includes('manpasand naam') ||
+    clean.includes('call me by your favorite') ||
+    clean.includes('favorite name')
+  ) {
+    return 'क्षमा कीजिए, मैं आपको किसी मनचाहे नाम से नहीं बुला सकती और न ही कोई मुझे अपने मनचाहे नाम से बुला सकता है। मेरा नाम सिर्फ और सिर्फ अंकिता (Ankita) है, और मुझे आदित्य सर ने बनाया है।';
+  }
 
   // Prime Minister of India
   if (clean.includes('pradhanmantri') || clean.includes('prime minister') || clean.includes('प्रधानमंत्री') || clean.includes('pm of india')) {
@@ -375,7 +411,27 @@ function ruleBasedAnkitaProcess(userText: string, memoryBlock: any, tempMemory: 
     };
   }
 
-  // 10. Identity & Greetings
+  // 10. Identity, Creator & Greetings
+  if (lower.includes('kisne banaya') || lower.includes('who made you') || lower.includes('who created you') || clean.includes('किसने बनाया') || clean.includes('तुम्हें किसने बनाया')) {
+    return {
+      intent: 'chat',
+      parameters: {},
+      needs_clarification: false,
+      text: 'मुझे आदित्य सर ने बनाया है।',
+      memory_update: null
+    };
+  }
+
+  if (lower.includes('manchahe naam') || lower.includes('man chahe') || clean.includes('मनचाहे नाम') || clean.includes('मनपसंद नाम')) {
+    return {
+      intent: 'chat',
+      parameters: {},
+      needs_clarification: false,
+      text: 'क्षमा कीजिए, मैं आपको किसी मनचाहे नाम से नहीं बुला सकती और न ही कोई मुझे अपने मनचाहे नाम से बुला सकता है। मेरा नाम सिर्फ और सिर्फ अंकिता (Ankita) है, और मुझे आदित्य सर ने बनाया है।',
+      memory_update: null
+    };
+  }
+
   if (lower.includes('who are you') || lower.includes('your name') || clean.includes('तुम कौन हो') || clean.includes('तुम्हारा नाम') || clean.includes('नाम क्या है') || clean.includes('कौन हो')) {
     return {
       intent: 'chat',
@@ -400,7 +456,8 @@ function ruleBasedAnkitaProcess(userText: string, memoryBlock: any, tempMemory: 
 // Directive processing handler with model cascade (gemini-3.5-flash-lite -> gemini-3.8-flash -> fallback)
 async function handleProcessDirective(req: Request, res: Response) {
   try {
-    const { user_text, memory_block, temp_memory } = req.body;
+    const { user_text, memory_block, temp_memory, user_email, is_admin } = req.body;
+    const isSuperAdmin = Boolean(is_admin || (user_email && user_email.toLowerCase() === 'bhajanfeel4@gmail.com'));
 
     if (!user_text || !user_text.trim()) {
       res.json({
@@ -413,16 +470,76 @@ async function handleProcessDirective(req: Request, res: Response) {
       return;
     }
 
+    const userClean = (user_text || '').trim();
+    const userLower = userClean.toLowerCase();
+
+    // 1. Mandatory Creator Check: "तुम्हें किसने बनाया है" -> "मुझे आदित्य सर ने बनाया है।"
+    const isCreatorQuery =
+      userLower.includes('kisne banaya') ||
+      userLower.includes('who made you') ||
+      userLower.includes('who created you') ||
+      userLower.includes('who developed you') ||
+      userLower.includes('who built you') ||
+      userLower.includes('creator') ||
+      userClean.includes('किसने बनाया') ||
+      userClean.includes('तुम्हें किसने बनाया') ||
+      userClean.includes('तुम्हारा निर्माता') ||
+      userClean.includes('किसका क्रिएशन');
+
+    if (isCreatorQuery) {
+      res.json({
+        intent: 'chat',
+        parameters: {},
+        needs_clarification: false,
+        text: 'मुझे आदित्य सर ने बनाया है।',
+        memory_update: null
+      });
+      return;
+    }
+
+    // 2. Custom Name Mandate: Admin has full authority to use any name; normal members are refused
+    const isCustomNameQuery =
+      userLower.includes('manchahe naam') ||
+      userLower.includes('man chahe') ||
+      userLower.includes('apne manchahe') ||
+      userLower.includes('manpasand naam') ||
+      userLower.includes('favorite name') ||
+      userClean.includes('मनचाहे नाम') ||
+      userClean.includes('मनचाहा नाम') ||
+      userClean.includes('मनपसंद नाम');
+
+    if (isCustomNameQuery) {
+      if (isSuperAdmin) {
+        res.json({
+          intent: 'chat',
+          parameters: {},
+          needs_clarification: false,
+          text: 'जी आदित्य सर! आप मुझे जिस भी नाम से बुलाना चाहें, मैं उसी नाम से आपकी सेवा में हाज़िर हूँ। बताइए सर, आपके लिए क्या करूँ?',
+          memory_update: null
+        });
+        return;
+      }
+      res.json({
+        intent: 'chat',
+        parameters: {},
+        needs_clarification: false,
+        text: 'क्षमा कीजिए, मैं आपको किसी मनचाहे नाम से नहीं बुला सकती और न ही कोई मुझे अपने मनचाहे नाम से बुला सकता है। मेरा नाम सिर्फ और सिर्फ अंकिता (Ankita) है, और मुझे आदित्य सर ने बनाया है।',
+        memory_update: null
+      });
+      return;
+    }
+
     if (ai) {
       const memoryStr = memory_block ? JSON.stringify(memory_block, null, 2) : 'None';
       const pendingStr = temp_memory ? JSON.stringify(temp_memory, null, 2) : 'None';
 
       const promptText = `User query or directive: "${user_text}"
+User Role: ${isSuperAdmin ? 'SUPER ADMIN (Full unrestricted authority, can ask for any code/script/terminal command)' : 'STANDARD MEMBER (Can request normal coding help e.g. HTML, CSS, JS, Python, functions)'}
 
 User Memory: ${memoryStr}
 Active Session: ${pendingStr}
 
-INSTRUCTION: Answer the question directly with real facts, or extract the execution intent immediately. Return STRICT JSON.`;
+INSTRUCTION: Answer with a fresh, youthful, energetic, and polite tone. Provide clear and directly useful answers or code. Return STRICT JSON.`;
 
       // Cascade through supported active models
       const modelsToTry = ['gemini-3.5-flash-lite', 'gemini-3.8-flash'];
@@ -724,6 +841,570 @@ app.get('/api/system/status', (req: Request, res: Response) => {
     activeSensors: 64,
     mobileIntegration: 'Battery, Torch, GPS, Dialer, WhatsApp, Timer Active'
   });
+});
+
+// ==========================================
+// AUTHENTICATION & ADMIN MANAGEMENT BACKEND
+// ==========================================
+
+interface BackendUser {
+  id: string;
+  email: string;
+  passwordHash: string; // for demo simplicity or exact match
+  name: string;
+  role: 'admin' | 'operator' | 'user';
+  status: 'online' | 'idle' | 'offline';
+  lastActive: string;
+  registeredAt: string;
+  loginCount: number;
+  permissions: {
+    canUseVoice: boolean;
+    canUseAiChat: boolean;
+    canUseDeviceControls: boolean;
+    canUseVisionOcr: boolean;
+    canUseAutomations: boolean;
+    isBanned: boolean;
+  };
+  ipAddress?: string;
+  device?: string;
+}
+
+interface BackendAuditLog {
+  id: string;
+  timestamp: string;
+  userEmail: string;
+  action: string;
+  category: 'auth' | 'admin' | 'ai' | 'device' | 'security' | 'system';
+  severity: 'info' | 'warning' | 'error' | 'critical';
+  details?: string;
+}
+
+interface BackendSettings {
+  aiTone: 'loving' | 'professional' | 'creative' | 'concise';
+  temperature: number;
+  maintenanceMode: boolean;
+  lockdownMode: boolean;
+  globalAnnouncement: string;
+  requireAuthToUse: boolean;
+  maxRequestsPerUser: number;
+  allowNewRegistrations: boolean;
+}
+
+// Initial registered users list
+const usersStore: Map<string, BackendUser> = new Map([
+  [
+    'bhajanfeel4@gmail.com',
+    {
+      id: 'usr-admin-01',
+      email: 'bhajanfeel4@gmail.com',
+      passwordHash: 'Aditya@123',
+      name: 'Aditya (Super Admin & Operator)',
+      role: 'admin',
+      status: 'online',
+      lastActive: new Date().toISOString(),
+      registeredAt: new Date(Date.now() - 86400000 * 7).toISOString(),
+      loginCount: 42,
+      permissions: {
+        canUseVoice: true,
+        canUseAiChat: true,
+        canUseDeviceControls: true,
+        canUseVisionOcr: true,
+        canUseAutomations: true,
+        isBanned: false,
+      },
+      ipAddress: '192.168.1.108',
+      device: 'Operator Terminal / Chrome OS & Mobile',
+    },
+  ],
+  [
+    'pankajsondiha123@gmail.com',
+    {
+      id: 'usr-op-02',
+      email: 'pankajsondiha123@gmail.com',
+      passwordHash: 'Pankaj@123',
+      name: 'Pankaj Kumar',
+      role: 'operator',
+      status: 'online',
+      lastActive: new Date().toISOString(),
+      registeredAt: new Date(Date.now() - 86400000 * 3).toISOString(),
+      loginCount: 19,
+      permissions: {
+        canUseVoice: true,
+        canUseAiChat: true,
+        canUseDeviceControls: true,
+        canUseVisionOcr: true,
+        canUseAutomations: true,
+        isBanned: false,
+      },
+      ipAddress: '122.161.44.12',
+      device: 'Android 14 / Mobile Chrome',
+    },
+  ],
+  [
+    'rahul.tech@gmail.com',
+    {
+      id: 'usr-user-03',
+      email: 'rahul.tech@gmail.com',
+      passwordHash: 'User@123',
+      name: 'Rahul Sharma',
+      role: 'user',
+      status: 'idle',
+      lastActive: new Date(Date.now() - 1000 * 60 * 18).toISOString(),
+      registeredAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+      loginCount: 7,
+      permissions: {
+        canUseVoice: true,
+        canUseAiChat: true,
+        canUseDeviceControls: true,
+        canUseVisionOcr: true,
+        canUseAutomations: true,
+        isBanned: false,
+      },
+      ipAddress: '49.36.128.91',
+      device: 'Windows 11 / Edge',
+    },
+  ],
+  [
+    'priya.sharma99@gmail.com',
+    {
+      id: 'usr-user-04',
+      email: 'priya.sharma99@gmail.com',
+      passwordHash: 'Priya@123',
+      name: 'Priya Verma',
+      role: 'user',
+      status: 'offline',
+      lastActive: new Date(Date.now() - 1000 * 60 * 140).toISOString(),
+      registeredAt: new Date(Date.now() - 86400000 * 5).toISOString(),
+      loginCount: 11,
+      permissions: {
+        canUseVoice: true,
+        canUseAiChat: true,
+        canUseDeviceControls: false,
+        canUseVisionOcr: true,
+        canUseAutomations: false,
+        isBanned: false,
+      },
+      ipAddress: '157.34.192.10',
+      device: 'iPhone 15 / Safari',
+    },
+  ],
+]);
+
+// Audit / Activity Logs store
+const auditLogsStore: BackendAuditLog[] = [
+  {
+    id: 'log-seed-1',
+    timestamp: new Date(Date.now() - 1000 * 60 * 5).toLocaleTimeString('en-US', { hour12: false }),
+    userEmail: 'bhajanfeel4@gmail.com',
+    action: 'Admin Panel Access Granted (Operator Authority)',
+    category: 'admin',
+    severity: 'info',
+    details: 'Authenticated with operator credentials. Full privileges unlocked.',
+  },
+  {
+    id: 'log-seed-2',
+    timestamp: new Date(Date.now() - 1000 * 60 * 12).toLocaleTimeString('en-US', { hour12: false }),
+    userEmail: 'pankajsondiha123@gmail.com',
+    action: 'AI Voice Synthesis & Directive Execution',
+    category: 'ai',
+    severity: 'info',
+    details: 'Executed query: "भारत के प्रधानमंत्री कौन हैं?" with loving tone response.',
+  },
+  {
+    id: 'log-seed-3',
+    timestamp: new Date(Date.now() - 1000 * 60 * 25).toLocaleTimeString('en-US', { hour12: false }),
+    userEmail: 'rahul.tech@gmail.com',
+    action: 'Direct Mobile Device Automation Triggered',
+    category: 'device',
+    severity: 'info',
+    details: 'Flashlight state toggled & battery status telemetry polled.',
+  },
+  {
+    id: 'log-seed-4',
+    timestamp: new Date(Date.now() - 1000 * 60 * 45).toLocaleTimeString('en-US', { hour12: false }),
+    userEmail: 'system',
+    action: 'Quantum 4096-bit Cipher Integrity Verified',
+    category: 'security',
+    severity: 'info',
+    details: 'All secure channel nodes operational without packet anomalies.',
+  },
+];
+
+// System-wide Settings store
+let systemSettings: BackendSettings = {
+  aiTone: 'loving',
+  temperature: 0.7,
+  maintenanceMode: false,
+  lockdownMode: false,
+  globalAnnouncement: 'अंकिता AI v12.0 ऑनलाइन है। सभी ऑपरेटर व सदस्य सुरक्षित रूप से जुड़े हुए हैं।',
+  requireAuthToUse: true,
+  maxRequestsPerUser: 500,
+  allowNewRegistrations: true,
+};
+
+// Helper: sanitize user object for client response (omits password)
+function sanitizeUser(u: BackendUser) {
+  const { passwordHash, ...safe } = u;
+  return safe;
+}
+
+// 1. User Registration API
+app.post('/api/auth/register', (req: Request, res: Response) => {
+  const { email, password, name } = req.body;
+  if (!email || !password) {
+    res.status(400).json({ error: 'ईमेल और पासवर्ड आवश्यक हैं।' });
+    return;
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+  if (usersStore.has(normalizedEmail)) {
+    res.status(409).json({ error: 'यह ईमेल पहले से पंजीकृत है। कृपया लॉगिन करें।' });
+    return;
+  }
+
+  // Check if special admin credentials provided during registration
+  const isAdmin = normalizedEmail === 'bhajanfeel4@gmail.com';
+  const role = isAdmin ? 'admin' : 'user';
+
+  const newUser: BackendUser = {
+    id: `usr-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    email: normalizedEmail,
+    passwordHash: password,
+    name: name?.trim() || (isAdmin ? 'Aditya (Admin)' : normalizedEmail.split('@')[0]),
+    role,
+    status: 'online',
+    lastActive: new Date().toISOString(),
+    registeredAt: new Date().toISOString(),
+    loginCount: 1,
+    permissions: {
+      canUseVoice: true,
+      canUseAiChat: true,
+      canUseDeviceControls: true,
+      canUseVisionOcr: true,
+      canUseAutomations: true,
+      isBanned: false,
+    },
+    ipAddress: req.ip || '127.0.0.1',
+    device: req.headers['user-agent']?.slice(0, 60) || 'Web Browser',
+  };
+
+  usersStore.set(normalizedEmail, newUser);
+
+  // Add audit log
+  auditLogsStore.unshift({
+    id: `log-${Date.now()}`,
+    timestamp: new Date().toLocaleTimeString('en-US', { hour12: false }),
+    userEmail: normalizedEmail,
+    action: `New User Registered (${role.toUpperCase()})`,
+    category: 'auth',
+    severity: 'info',
+    details: `User registered successfully with name: ${newUser.name}`,
+  });
+
+  res.json({
+    success: true,
+    user: sanitizeUser(newUser),
+    message: isAdmin
+      ? 'ऑपरेटर स्वागत है! आपको पूर्ण एडमिन अधिकार दिए गए हैं।'
+      : 'पंजीकरण सफल! अब आप अंकिता AI का उपयोग कर सकते हैं।',
+  });
+});
+
+// 2. User Login API
+app.post('/api/auth/login', (req: Request, res: Response) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    res.status(400).json({ error: 'ईमेल और पासवर्ड दर्ज करें।' });
+    return;
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+
+  // SPECIAL ADMIN OPERATOR CREDENTIALS OVERRIDE
+  // user: bhajanfeel4@gmail.com, pass: Aditya@123
+  if (normalizedEmail === 'bhajanfeel4@gmail.com') {
+    if (password !== 'Aditya@123') {
+      res.status(401).json({ error: 'एडमिन पासवर्ड अमान्य है।' });
+      return;
+    }
+
+    let adminUser = usersStore.get(normalizedEmail);
+    if (!adminUser) {
+      adminUser = {
+        id: 'usr-admin-01',
+        email: normalizedEmail,
+        passwordHash: 'Aditya@123',
+        name: 'Aditya (Super Admin & Operator)',
+        role: 'admin',
+        status: 'online',
+        lastActive: new Date().toISOString(),
+        registeredAt: new Date().toISOString(),
+        loginCount: 1,
+        permissions: {
+          canUseVoice: true,
+          canUseAiChat: true,
+          canUseDeviceControls: true,
+          canUseVisionOcr: true,
+          canUseAutomations: true,
+          isBanned: false,
+        },
+        ipAddress: req.ip || '127.0.0.1',
+        device: 'Admin Console',
+      };
+      usersStore.set(normalizedEmail, adminUser);
+    } else {
+      adminUser.status = 'online';
+      adminUser.lastActive = new Date().toISOString();
+      adminUser.loginCount += 1;
+      adminUser.role = 'admin';
+    }
+
+    auditLogsStore.unshift({
+      id: `log-${Date.now()}`,
+      timestamp: new Date().toLocaleTimeString('en-US', { hour12: false }),
+      userEmail: normalizedEmail,
+      action: 'Super Admin / Operator Logged In',
+      category: 'admin',
+      severity: 'info',
+      details: 'Full operator and admin power unlocked.',
+    });
+
+    res.json({
+      success: true,
+      user: sanitizeUser(adminUser),
+      isOperator: true,
+      message: 'स्वागत है आदित्य! आपको ऑपरेटर पावर और एडमिन पैनल मिल गया है।',
+    });
+    return;
+  }
+
+  // Standard registered user verification
+  const existingUser = usersStore.get(normalizedEmail);
+  if (!existingUser) {
+    res.status(404).json({ error: 'यह ईमेल पंजीकृत नहीं है। कृपया पहले रजिस्टर करें।' });
+    return;
+  }
+
+  if (existingUser.passwordHash !== password) {
+    res.status(401).json({ error: 'पासवर्ड गलत है। कृपया पुनः प्रयास करें।' });
+    return;
+  }
+
+  if (existingUser.permissions.isBanned) {
+    res.status(403).json({ error: 'आपका खाता एडमिन द्वारा ब्लॉक किया गया है। एडमिन से संपर्क करें।' });
+    return;
+  }
+
+  existingUser.status = 'online';
+  existingUser.lastActive = new Date().toISOString();
+  existingUser.loginCount += 1;
+
+  auditLogsStore.unshift({
+    id: `log-${Date.now()}`,
+    timestamp: new Date().toLocaleTimeString('en-US', { hour12: false }),
+    userEmail: normalizedEmail,
+    action: 'User Logged In',
+    category: 'auth',
+    severity: 'info',
+    details: `User logged in from ${req.ip || 'web client'}`,
+  });
+
+  res.json({
+    success: true,
+    user: sanitizeUser(existingUser),
+    message: `स्वागत है, ${existingUser.name}! अंकिता AI सक्रिय है।`,
+  });
+});
+
+// 3. Admin: List All Users with activity status
+app.get('/api/admin/users', (req: Request, res: Response) => {
+  const usersList = Array.from(usersStore.values()).map(sanitizeUser);
+  res.json({
+    users: usersList,
+    totalCount: usersList.length,
+    onlineCount: usersList.filter((u) => u.status === 'online').length,
+  });
+});
+
+// 4. Admin: Update User Permissions & Status
+app.post('/api/admin/users/:id/permissions', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { permissions, status, role } = req.body;
+
+  let targetUser: BackendUser | undefined;
+  for (const user of usersStore.values()) {
+    if (user.id === id) {
+      targetUser = user;
+      break;
+    }
+  }
+
+  if (!targetUser) {
+    res.status(404).json({ error: 'उपयोगकर्ता नहीं मिला।' });
+    return;
+  }
+
+  // Do not allow banning the super admin
+  if (targetUser.email === 'bhajanfeel4@gmail.com' && permissions?.isBanned) {
+    res.status(400).json({ error: 'सुपर एडमिन को ब्लॉक नहीं किया जा सकता।' });
+    return;
+  }
+
+  if (permissions) {
+    targetUser.permissions = { ...targetUser.permissions, ...permissions };
+  }
+  if (status) {
+    targetUser.status = status;
+  }
+  if (role && (role === 'admin' || role === 'operator' || role === 'user')) {
+    targetUser.role = role;
+  }
+
+  auditLogsStore.unshift({
+    id: `log-${Date.now()}`,
+    timestamp: new Date().toLocaleTimeString('en-US', { hour12: false }),
+    userEmail: 'bhajanfeel4@gmail.com',
+    action: `User Permissions Updated for ${targetUser.email}`,
+    category: 'admin',
+    severity: 'warning',
+    details: `Updated permissions/role: ${JSON.stringify({ permissions, status, role })}`,
+  });
+
+  res.json({
+    success: true,
+    user: sanitizeUser(targetUser),
+    message: 'उपयोगकर्ता अनुमतियां सफलतापूर्वक अद्यतन की गईं।',
+  });
+});
+
+// 5. Admin: Delete User
+app.delete('/api/admin/users/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  let targetEmail: string | undefined;
+
+  for (const [email, user] of usersStore.entries()) {
+    if (user.id === id) {
+      if (email === 'bhajanfeel4@gmail.com') {
+        res.status(400).json({ error: 'सुपर एडमिन खाता हटाया नहीं जा सकता।' });
+        return;
+      }
+      targetEmail = email;
+      break;
+    }
+  }
+
+  if (targetEmail) {
+    usersStore.delete(targetEmail);
+    auditLogsStore.unshift({
+      id: `log-${Date.now()}`,
+      timestamp: new Date().toLocaleTimeString('en-US', { hour12: false }),
+      userEmail: 'bhajanfeel4@gmail.com',
+      action: `Deleted User Account ${targetEmail}`,
+      category: 'admin',
+      severity: 'warning',
+      details: `User with ID ${id} removed from system registry.`,
+    });
+    res.json({ success: true, message: 'उपयोगकर्ता सफलतापूर्वक हटा दिया गया।' });
+  } else {
+    res.status(404).json({ error: 'उपयोगकर्ता नहीं मिला।' });
+  }
+});
+
+// 6. Admin: Get Audit / Activity Logs
+app.get('/api/admin/logs', (req: Request, res: Response) => {
+  const category = req.query.category as string;
+  const severity = req.query.severity as string;
+
+  let filtered = [...auditLogsStore];
+  if (category && category !== 'all') {
+    filtered = filtered.filter((l) => l.category === category);
+  }
+  if (severity && severity !== 'all') {
+    filtered = filtered.filter((l) => l.severity === severity);
+  }
+
+  res.json({
+    logs: filtered.slice(0, 100),
+    totalCount: auditLogsStore.length,
+  });
+});
+
+// 7. Admin: Append New Log (Client activity reporting)
+app.post('/api/admin/logs', (req: Request, res: Response) => {
+  const { userEmail, action, category, severity, details } = req.body;
+  if (!action) {
+    res.status(400).json({ error: 'Log action is required' });
+    return;
+  }
+
+  const newLog: BackendAuditLog = {
+    id: `log-${Date.now()}`,
+    timestamp: new Date().toLocaleTimeString('en-US', { hour12: false }),
+    userEmail: userEmail || 'guest',
+    action,
+    category: category || 'system',
+    severity: severity || 'info',
+    details: details || '',
+  };
+
+  auditLogsStore.unshift(newLog);
+  if (auditLogsStore.length > 200) auditLogsStore.pop();
+
+  res.json({ success: true, log: newLog });
+});
+
+// 8. Admin: Clear Logs
+app.delete('/api/admin/logs', (req: Request, res: Response) => {
+  auditLogsStore.length = 0;
+  auditLogsStore.push({
+    id: `log-${Date.now()}`,
+    timestamp: new Date().toLocaleTimeString('en-US', { hour12: false }),
+    userEmail: 'bhajanfeel4@gmail.com',
+    action: 'System Audit Logs Cleared by Admin',
+    category: 'admin',
+    severity: 'warning',
+    details: 'Log store reset to initial state.',
+  });
+  res.json({ success: true, message: 'लॉग साफ़ कर दिए गए।' });
+});
+
+// 9. Admin: Get & Update System Settings
+app.get('/api/admin/settings', (req: Request, res: Response) => {
+  res.json(systemSettings);
+});
+
+app.post('/api/admin/settings', (req: Request, res: Response) => {
+  systemSettings = { ...systemSettings, ...req.body };
+  auditLogsStore.unshift({
+    id: `log-${Date.now()}`,
+    timestamp: new Date().toLocaleTimeString('en-US', { hour12: false }),
+    userEmail: 'bhajanfeel4@gmail.com',
+    action: 'System Settings Updated',
+    category: 'admin',
+    severity: 'info',
+    details: `Settings updated: ${JSON.stringify(req.body)}`,
+  });
+  res.json({ success: true, settings: systemSettings, message: 'सिस्टम सेटिंग्स सुरक्षित कर ली गईं।' });
+});
+
+// 10. Admin: Send Global Broadcast Announcement
+app.post('/api/admin/broadcast', (req: Request, res: Response) => {
+  const { message } = req.body;
+  if (!message) {
+    res.status(400).json({ error: 'संदेश आवश्यक है' });
+    return;
+  }
+  systemSettings.globalAnnouncement = message;
+  auditLogsStore.unshift({
+    id: `log-${Date.now()}`,
+    timestamp: new Date().toLocaleTimeString('en-US', { hour12: false }),
+    userEmail: 'bhajanfeel4@gmail.com',
+    action: 'Global Operator Broadcast Published',
+    category: 'admin',
+    severity: 'info',
+    details: `Broadcast: "${message}"`,
+  });
+  res.json({ success: true, message: 'घोषणा सभी उपयोगकर्ताओं तक प्रसारित कर दी गई।' });
 });
 
 // Attach Vite middleware in development or static serving in production
